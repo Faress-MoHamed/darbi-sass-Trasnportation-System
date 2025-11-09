@@ -1,17 +1,3 @@
-## 📋 Table of Contents | جدول المحتويات
-
-* System & SaaS Management | إدارة النظام
-* Transport Management | إدارة النقل
-* Passengers & Bookings | الركاب والحجوزات
-* Payments & Financial Reports | المدفوعات والتقارير المالية
-* Notifications & Support | الإشعارات والدعم الفني
-* Analytics & KPIs | التحليلات والإحصائيات
-* Maps & Tracking | الخرائط والتتبع
-* Helper Tables | الجداول المساعدة
-
----
-
-## System & SaaS Management | إدارة النظام
 
 ### 1. `tenants`
 
@@ -24,8 +10,8 @@ Core table for multi-tenant SaaS architecture. Each tenant represents a separate
 | id | UUID | PRIMARY KEY | Unique identifier |
 | name | VARCHAR(150) | NOT NULL | Tenant/company name |
 | domain | VARCHAR(150) | | Custom domain |
-| plan_type | VARCHAR(50) | | 'basic', 'pro', 'enterprise' |
-| status | VARCHAR(20) | | 'active', 'suspended', 'inactive' |
+| plan_type_id | INT | FOREIGN KEY → plan_types.id | Reference to plan type |
+| status_id | INT | FOREIGN KEY → tenant_statuses.id | Reference to tenant status |
 | created_at | TIMESTAMP | | Registration date |
 | updated_at | TIMESTAMP | | Last update timestamp |
 
@@ -57,14 +43,14 @@ Central user management table. Stores all system users including admins, supervi
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
 | tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
-| role | VARCHAR(20) | NOT NULL | 'admin', 'supervisor', 'driver', 'passenger' |
+| role_id | INT | FOREIGN KEY → user_roles_enum.id | Reference to user role |
 | name | VARCHAR(150) | NOT NULL | Full name |
 | email | VARCHAR(150) | UNIQUE, NOT NULL | Email address |
 | phone | VARCHAR(20) | | Phone number |
 | password_hash | TEXT | NOT NULL | Hashed password |
 | avatar | VARCHAR(255) | | Profile picture URL |
 | language | VARCHAR(10) | | Preferred language |
-| status | VARCHAR(20) | | 'active', 'banned', 'pending' |
+| status_id | INT | FOREIGN KEY → user_statuses.id | Reference to user status |
 | last_login | TIMESTAMP | | Last login timestamp |
 | created_at | TIMESTAMP | | Registration date |
 
@@ -159,7 +145,7 @@ Stores driver-specific information including license details, vehicle type, curr
 | user_id | UUID | FOREIGN KEY → users.id | Reference to user account |
 | license_number | VARCHAR(50) | NOT NULL | Driver's license number |
 | vehicle_type | VARCHAR(50) | | Type of vehicle assigned |
-| status | VARCHAR(20) | | 'available', 'unavailable', 'offline' |
+| status_id | INT | FOREIGN KEY → driver_statuses.id | Reference to driver status |
 | rating | DECIMAL(2,1) | | Driver rating (0.0-5.0) |
 | connected | BOOLEAN | DEFAULT FALSE | Online/offline status |
 
@@ -178,7 +164,7 @@ Complete bus/vehicle registry. Contains vehicle identification, capacity, type, 
 | bus_number | VARCHAR(50) | UNIQUE, NOT NULL | Bus identification number |
 | capacity | INT | NOT NULL | Passenger capacity |
 | type | VARCHAR(50) | | Bus type/model |
-| status | VARCHAR(20) | | 'active', 'maintenance', 'stopped' |
+| status_id | INT | FOREIGN KEY → bus_statuses.id | Reference to bus status |
 | gps_tracker_id | VARCHAR(100) | | GPS device identifier |
 | maintenance_status | VARCHAR(100) | | Current maintenance status |
 
@@ -234,7 +220,7 @@ Individual journey instances. Links a specific bus, driver, and route with depar
 | driver_id | UUID | FOREIGN KEY → drivers.id | Reference to driver |
 | departure_time | TIMESTAMP | NOT NULL | Scheduled departure |
 | arrival_time | TIMESTAMP | | Scheduled arrival |
-| status | VARCHAR(20) | | 'active', 'completed', 'cancelled' |
+| status_id | INT | FOREIGN KEY → trip_statuses.id | Reference to trip status |
 | available_seats | INT | | Current available seats |
 | notes | TEXT | | Additional notes |
 
@@ -287,7 +273,7 @@ Passenger-specific profiles linked to user accounts. Tracks subscription status 
 | id | UUID | PRIMARY KEY | Unique identifier |
 | tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to user account |
-| subscription_status | VARCHAR(20) | | 'active', 'expired', 'none' |
+| subscription_status_id | INT | FOREIGN KEY → subscription_statuses.id | Reference to subscription status |
 | points_balance | INT | DEFAULT 0 | Loyalty points balance |
 
 ---
@@ -305,7 +291,7 @@ Trip reservations made by passengers. Contains seat assignment, booking status, 
 | trip_id | UUID | FOREIGN KEY → trips.id | Reference to trip |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to passenger |
 | seat_number | VARCHAR(10) | | Assigned seat number |
-| status | VARCHAR(20) | | 'confirmed', 'cancelled', 'pending' |
+| status_id | INT | FOREIGN KEY → booking_statuses.id | Reference to booking status |
 | ticket_number | VARCHAR(100) | UNIQUE | Unique ticket identifier |
 | booking_date | TIMESTAMP | NOT NULL | When booking was made |
 | payment_id | UUID | FOREIGN KEY → payments.id | Reference to payment |
@@ -326,7 +312,7 @@ Recurring subscription plans for regular passengers. Manages subscription period
 | plan_name | VARCHAR(100) | NOT NULL | Subscription plan name |
 | start_date | DATE | NOT NULL | Subscription start date |
 | end_date | DATE | NOT NULL | Subscription end date |
-| status | VARCHAR(20) | | 'active', 'expired', 'cancelled' |
+| status_id | INT | FOREIGN KEY → subscription_statuses.id | Reference to subscription status |
 | price | DECIMAL(10,2) | NOT NULL | Subscription price |
 
 ---
@@ -378,10 +364,10 @@ Complete payment transaction records. Stores amount, payment method (wallet/card
 | tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to payer |
 | amount | DECIMAL(10,2) | NOT NULL | Payment amount |
-| method | VARCHAR(20) | | 'wallet', 'card', 'cash' |
+| method_id | INT | FOREIGN KEY → payment_types.id | Reference to payment type |
 | provider | VARCHAR(50) | | Payment provider name |
 | transaction_id | VARCHAR(150) | UNIQUE | External transaction ID |
-| status | VARCHAR(20) | | 'success', 'failed', 'pending', 'refunded' |
+| status_id | INT | FOREIGN KEY → payment_statuses.id | Reference to payment status |
 | created_at | TIMESTAMP | NOT NULL | Payment creation time |
 | updated_at | TIMESTAMP | | Last status update |
 | reference | VARCHAR(100) | | Payment reference number |
@@ -400,7 +386,7 @@ Saved payment methods for users. Stores tokenized card information (last 4 digit
 | id | UUID | PRIMARY KEY | Unique identifier |
 | tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to user |
-| type | VARCHAR(20) | | 'wallet', 'credit_card', 'debit_card' |
+| type_id | INT | FOREIGN KEY → payment_methods_enum.id | Reference to payment method type |
 | provider | VARCHAR(50) | | Provider name |
 | last4 | VARCHAR(4) | | Last 4 digits of card |
 | token | VARCHAR(255) | | Tokenized card data |
@@ -454,7 +440,7 @@ Generated financial report metadata. Stores report type, date range, and file pa
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
 | tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
-| report_type | VARCHAR(20) | | 'revenue', 'expense', 'summary' |
+| report_type_id | INT | FOREIGN KEY → financial_report_types.id | Reference to report type |
 | start_date | DATE | NOT NULL | Report start date |
 | end_date | DATE | NOT NULL | Report end date |
 | file_path | VARCHAR(255) | | Report file location |
@@ -476,11 +462,11 @@ Push notification management system. Handles alerts, delays, route changes, emer
 | tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
 | title | VARCHAR(150) | NOT NULL | Notification title |
 | message | TEXT | NOT NULL | Notification message |
-| type | VARCHAR(20) | | 'alert', 'delay', 'route_change', 'emergency', 'promo' |
+| type_id | INT | FOREIGN KEY → notification_types.id | Reference to notification type |
 | target_user_id | UUID | FOREIGN KEY → users.id | Target recipient |
 | scheduled_at | TIMESTAMP | | When to send |
 | sent_at | TIMESTAMP | | When actually sent |
-| status | VARCHAR(20) | | 'pending', 'sent', 'failed' |
+| status_id | INT | FOREIGN KEY → notification_statuses.id | Reference to notification status |
 | created_at | TIMESTAMP | NOT NULL | Creation timestamp |
 
 ---
@@ -498,7 +484,7 @@ Customer support ticket system. Users can submit issues or requests with subject
 | user_id | UUID | FOREIGN KEY → users.id | User who created ticket |
 | subject | VARCHAR(200) | NOT NULL | Ticket subject |
 | message | TEXT | NOT NULL | Ticket description |
-| status | VARCHAR(20) | | 'open', 'in_progress', 'closed' |
+| status_id | INT | FOREIGN KEY → support_ticket_statuses.id | Reference to ticket status |
 | created_at | TIMESTAMP | NOT NULL | Ticket creation time |
 | closed_at | TIMESTAMP | | When ticket was closed |
 
@@ -604,7 +590,7 @@ Bus operational status history. Tracks transitions between active, idle, stopped
 |--------|------|-------------|-------------|
 | id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
 | bus_id | UUID | FOREIGN KEY → buses.id | Reference to bus |
-| status | VARCHAR(20) | NOT NULL | 'active', 'idle', 'stopped', 'maintenance' |
+| status_id | INT | FOREIGN KEY → bus_operation_statuses.id | Reference to bus operation status |
 | timestamp | TIMESTAMP | NOT NULL | Status change timestamp |
 
 ---
@@ -619,7 +605,7 @@ Custom map visualization layers. Stores GeoJSON data for route overlays, heatmap
 |--------|------|-------------|-------------|
 | id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
 | tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
-| type | VARCHAR(20) | NOT NULL | 'route_overlay', 'heatmap', 'zones' |
+| type_id | INT | FOREIGN KEY → map_layer_types.id | Reference to map layer type |
 | data | JSON | NOT NULL | GeoJSON layer data |
 | visible | BOOLEAN | DEFAULT TRUE | Layer visibility |
 | updated_at | TIMESTAMP | | Last update time |
@@ -640,7 +626,7 @@ Comprehensive audit trail for compliance. Records all create/update/delete opera
 | user_id | UUID | FOREIGN KEY → users.id | User who made change |
 | entity_type | VARCHAR(100) | NOT NULL | Type of entity changed |
 | entity_id | UUID | NOT NULL | ID of entity changed |
-| action | VARCHAR(20) | NOT NULL | 'create', 'update', 'delete' |
+| action_id | INT | FOREIGN KEY → audit_action_types.id | Reference to action type |
 | old_data | JSON | | Data before change |
 | new_data | JSON | | Data after change |
 | created_at | TIMESTAMP | NOT NULL | Audit record timestamp |
@@ -677,4 +663,301 @@ Universal file attachment system. Links documents, images, and files to any enti
 | entity_id | UUID | NOT NULL | ID of entity |
 | file_path | VARCHAR(255) | NOT NULL | File storage path |
 | uploaded_at | TIMESTAMP | NOT NULL | Upload timestamp |
+
+---
+
+## Enum Tables | جداول القيم الثابتة
+
+### System Enums | القيم الثابتة للنظام
+
+#### 38. `plan_types`
+Subscription plan types for tenants (basic, pro, enterprise).
+أنواع خطط الاشتراك للعملاء (أساسي، احترافي، مؤسسي).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Plan type key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Plan description |
+
+**Values:** `basic`, `pro`, `enterprise`
+
+---
+
+#### 39. `tenant_statuses`
+Status values for tenant accounts.
+حالات حسابات العملاء.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `active`, `suspended`, `inactive`
+
+---
+
+#### 40. `user_roles_enum`
+System-defined user role types.
+أنواع أدوار المستخدمين المحددة من النظام.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Role key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Role description |
+
+**Values:** `admin`, `supervisor`, `driver`, `passenger`
+
+---
+
+#### 41. `user_statuses`
+User account status values.
+حالات حسابات المستخدمين.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `active`, `banned`, `pending`
+
+---
+
+### Transport Enums | القيم الثابتة للنقل
+
+#### 42. `driver_statuses`
+Driver availability status values.
+حالات توفر السائقين.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `available`, `unavailable`, `offline`
+
+---
+
+#### 43. `bus_statuses`
+Bus operational status values.
+حالات تشغيل الحافلات.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `active`, `maintenance`, `stopped`
+
+---
+
+#### 44. `trip_statuses`
+Trip lifecycle status values.
+حالات دورة حياة الرحلة.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `active`, `completed`, `cancelled`
+
+---
+
+#### 45. `bus_operation_statuses`
+Detailed bus operational states for logging.
+حالات تشغيل الحافلة التفصيلية للتسجيل.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `active`, `idle`, `stopped`, `maintenance`
+
+---
+
+### Booking & Payment Enums | القيم الثابتة للحجوزات والمدفوعات
+
+#### 46. `subscription_statuses`
+Subscription status values.
+حالات الاشتراكات.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `active`, `expired`, `cancelled`
+
+---
+
+#### 47. `booking_statuses`
+Booking status values.
+حالات الحجوزات.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `confirmed`, `cancelled`, `pending`
+
+---
+
+#### 48. `payment_types`
+Payment method types.
+أنواع طرق الدفع.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Type key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Type description |
+
+**Values:** `wallet`, `card`, `cash`
+
+---
+
+#### 49. `payment_statuses`
+Payment transaction status values.
+حالات معاملات الدفع.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `success`, `failed`, `pending`, `refunded`
+
+---
+
+#### 50. `payment_methods_enum`
+Saved payment method types.
+أنواع طرق الدفع المحفوظة.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Method key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Method description |
+
+**Values:** `wallet`, `credit_card`, `debit_card`
+
+---
+
+### Notification & Support Enums | القيم الثابتة للإشعارات والدعم
+
+#### 51. `notification_types`
+Notification category types.
+أنواع فئات الإشعارات.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Type key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Type description |
+
+**Values:** `alert`, `delay`, `route_change`, `emergency`, `promo`
+
+---
+
+#### 52. `notification_statuses`
+Notification delivery status values.
+حالات تسليم الإشعارات.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `pending`, `sent`, `failed`
+
+---
+
+#### 53. `support_ticket_statuses`
+Support ticket status values.
+حالات تذاكر الدعم الفني.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Status key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Status description |
+
+**Values:** `open`, `in_progress`, `closed`
+
+---
+
+### Report & Audit Enums | القيم الثابتة للتقارير والتدقيق
+
+#### 54. `financial_report_types`
+Financial report category types.
+أنواع فئات التقارير المالية.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Type key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Type description |
+
+**Values:** `revenue`, `expense`, `summary`
+
+---
+
+#### 55. `audit_action_types`
+Audit log action types.
+أنواع إجراءات سجل التدقيق.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Action key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Action description |
+
+**Values:** `create`, `update`, `delete`
+
+---
+
+#### 56. `map_layer_types`
+Map visualization layer types.
+أنواع طبقات تصور الخرائط.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Type key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Type description |
+
+**Values:** `route_overlay`, `heatmap`, `zones`
 
