@@ -1,6 +1,3 @@
-# Smart Transport SaaS - Database Documentation
-# توثيق قاعدة البيانات - نظام النقل الذكي
-
 ## 📋 Table of Contents | جدول المحتويات
 
 * System & SaaS Management | إدارة النظام
