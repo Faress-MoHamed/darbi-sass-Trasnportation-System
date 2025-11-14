@@ -1,3 +1,493 @@
+# 🚌 Smart Transport SaaS - Database Schema Documentation
+
+## Overview | نظرة عامة
+
+This document provides a comprehensive overview of the database schema for a multi-tenant SaaS transportation management system. The schema is designed to support multiple organizations (tenants) with isolated data, flexible custom fields, and normalized enum tables for better maintainability.
+
+يوفر هذا المستند نظرة شاملة على مخطط قاعدة البيانات لنظام SaaS متعدد العملاء لإدارة النقل. تم تصميم المخطط لدعم مؤسسات متعددة (عملاء) مع بيانات معزولة وحقول مخصصة مرنة وجداول قيم ثابتة منظمة لصيانة أفضل.
+
+---
+
+
+## Database Design Principles | مبادئ تصميم قاعدة البيانات
+
+### Multi-Tenancy | التعددية للعملاء
+
+The schema implements **row-level multi-tenancy** where:
+- Almost all tables include a `tenant_id` foreign key
+- Data isolation is enforced at the application level
+- Each tenant's data is completely separated from others
+- Queries must always filter by `tenant_id`
+
+يطبق المخطط **التعددية على مستوى الصف** حيث:
+- تحتوي جميع الجداول تقريبًا على مفتاح خارجي `tenant_id`
+- يتم فرض عزل البيانات على مستوى التطبيق
+- بيانات كل عميل منفصلة تمامًا عن الآخرين
+- يجب أن تقوم الاستعلامات دائمًا بالتصفية حسب `tenant_id`
+
+---
+
+### Normalized Enums | القيم الثابتة المنظمة
+
+Instead of using VARCHAR fields for status values, the schema uses **normalized enum tables**:
+
+بدلاً من استخدام حقول VARCHAR لقيم الحالة، يستخدم المخطط **جداول قيم ثابتة منظمة**:
+
+**Benefits | الفوائد:**
+- **Type Safety**: Prevents invalid status values
+- **Internationalization**: Easy to add translations via `label` field
+- **Maintainability**: Centralized management of enum values
+- **Flexibility**: Can add metadata (description, color codes, etc.)
+- **Data Integrity**: Foreign key constraints ensure referential integrity
+
+**Example Pattern:**
+```sql
+-- Enum table
+CREATE TABLE trip_statuses (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(50) UNIQUE NOT NULL,  -- 'active', 'completed', 'cancelled'
+  label VARCHAR(100),                 -- Display name
+  description TEXT
+);
+
+-- Usage in main table
+CREATE TABLE trips (
+  ...
+  status_id INT,
+  FOREIGN KEY (status_id) REFERENCES trip_statuses(id)
+);
+```
+
+---
+
+### Custom Fields Architecture | معمارية الحقول المخصصة
+
+The **Entity-Attribute-Value (EAV)** pattern allows tenants to extend entities dynamically:
+
+يتيح نمط **الكيان-السمة-القيمة (EAV)** للعملاء توسيع الكيانات ديناميكيًا:
+
+**Structure | البنية:**
+1. **Field Definition Tables**: Define custom fields per entity type
+   - `user_custom_fields`, `driver_custom_fields`, etc.
+   - Each tenant creates their own field definitions
+   - Includes field metadata (type, label, required, options)
+
+2. **Field Value Tables**: Store actual values for each entity instance
+   - `user_custom_field_values`, `driver_custom_field_values`, etc.
+   - All values stored as TEXT for flexibility
+   - Type casting handled at application layer
+
+**Use Cases | حالات الاستخدام:**
+- Emergency contact information for drivers
+- Special dietary requirements for passengers
+- Custom maintenance fields for buses
+- Additional trip attributes (weather conditions, traffic level)
+- Industry-specific compliance fields
+
+**Example:**
+```sql
+-- Tenant defines a custom field
+INSERT INTO driver_custom_fields (tenant_id, name, label, field_type_id, required)
+VALUES ('tenant-uuid', 'emergency_contact', 'Emergency Contact', 1, true);
+
+-- Store value for a specific driver
+INSERT INTO driver_custom_field_values (driver_id, custom_field_id, value)
+VALUES ('driver-uuid', 1, '+20-123-456-7890');
+```
+
+---
+
+### Indexing Strategy | استراتيجية الفهرسة
+
+**Recommended Indexes | الفهارس الموصى بها:**
+
+```sql
+-- Multi-tenant queries
+CREATE INDEX idx_users_tenant ON users(tenant_id);
+CREATE INDEX idx_trips_tenant ON trips(tenant_id);
+CREATE INDEX idx_bookings_tenant ON bookings(tenant_id);
+
+-- Foreign key lookups
+CREATE INDEX idx_trips_route ON trips(route_id);
+CREATE INDEX idx_trips_bus ON trips(bus_id);
+CREATE INDEX idx_trips_driver ON trips(driver_id);
+
+-- Status filtering
+CREATE INDEX idx_trips_status ON trips(status_id);
+CREATE INDEX idx_bookings_status ON bookings(status_id);
+
+-- Date-based queries
+CREATE INDEX idx_trips_departure ON trips(departure_time);
+CREATE INDEX idx_bookings_date ON bookings(booking_date);
+CREATE INDEX idx_payments_created ON payments(created_at);
+
+-- Composite indexes for common queries
+CREATE INDEX idx_trips_tenant_status ON trips(tenant_id, status_id);
+CREATE INDEX idx_users_tenant_email ON users(tenant_id, email);
+
+-- GPS data (time-series)
+CREATE INDEX idx_gps_bus_time ON gps_data(bus_id, timestamp);
+CREATE INDEX idx_trip_logs_trip_time ON trip_logs(trip_id, timestamp);
+```
+
+---
+
+### Data Types & Conventions | أنواع البيانات والاتفاقيات
+
+**UUID vs INT:**
+- **UUID**: Used for main business entities (tenants, users, trips, bookings)
+  - Better for distributed systems
+  - Prevents ID enumeration attacks
+  - Safe for public-facing APIs
+  
+- **INT**: Used for enum tables and high-volume time-series data
+  - More efficient for joins
+  - Smaller storage footprint
+  - Better for internal references
+
+**Timestamps:**
+- `created_at`: Record creation time (immutable)
+- `updated_at`: Last modification time
+- Use TIMESTAMP for automatic timezone handling
+- Store in UTC, convert at application layer
+
+**Decimal Precision:**
+- Money: `DECIMAL(10,2)` - supports up to 99,999,999.99
+- Coordinates: `DECIMAL(10,6)` - ~11cm precision
+- Ratings: `DECIMAL(2,1)` - supports 0.0 to 9.9
+- Percentages: `DECIMAL(5,2)` - supports 0.00 to 999.99
+
+---
+
+## Query Patterns | أنماط الاستعلامات
+
+### Common Queries | الاستعلامات الشائعة
+
+**1. Get all active trips for a tenant:**
+```sql
+SELECT t.*, r.name as route_name, b.bus_number, d.license_number
+FROM trips t
+JOIN routes r ON t.route_id = r.id
+JOIN buses b ON t.bus_id = b.id
+JOIN drivers d ON t.driver_id = d.id
+JOIN trip_statuses ts ON t.status_id = ts.id
+WHERE t.tenant_id = ? AND ts.name = 'active';
+```
+
+**2. Get user with custom fields:**
+```sql
+SELECT u.*, 
+       ucf.label as field_label,
+       ucfv.value as field_value
+FROM users u
+LEFT JOIN user_custom_field_values ucfv ON u.id = ucfv.user_id
+LEFT JOIN user_custom_fields ucf ON ucfv.custom_field_id = ucf.id
+WHERE u.id = ? AND u.tenant_id = ?;
+```
+
+**3. Real-time bus tracking:**
+```sql
+SELECT b.bus_number, gd.latitude, gd.longitude, gd.speed, gd.timestamp
+FROM gps_data gd
+JOIN buses b ON gd.bus_id = b.id
+WHERE b.tenant_id = ? 
+  AND gd.timestamp > NOW() - INTERVAL 5 MINUTE
+ORDER BY gd.timestamp DESC;
+```
+
+**4. Revenue report with aggregation:**
+```sql
+SELECT DATE(p.created_at) as date,
+       SUM(p.amount) as total_revenue,
+       COUNT(*) as transaction_count,
+       pt.label as payment_type
+FROM payments p
+JOIN payment_types pt ON p.method_id = pt.id
+JOIN payment_statuses ps ON p.status_id = ps.id
+WHERE p.tenant_id = ?
+  AND ps.name = 'success'
+  AND p.created_at BETWEEN ? AND ?
+GROUP BY DATE(p.created_at), pt.id;
+```
+
+**5. Trip performance analysis:**
+```sql
+SELECT t.id,
+       r.name as route_name,
+       tp.delays_count,
+       tp.avg_occupancy,
+       tp.rating,
+       COUNT(b.id) as booking_count
+FROM trips t
+JOIN routes r ON t.route_id = r.id
+LEFT JOIN trip_performance tp ON t.id = tp.trip_id
+LEFT JOIN bookings b ON t.id = b.trip_id
+WHERE t.tenant_id = ?
+  AND t.departure_time BETWEEN ? AND ?
+GROUP BY t.id;
+```
+
+---
+
+## Security Considerations | اعتبارات الأمان
+
+### Row-Level Security | الأمان على مستوى الصف
+
+Always enforce tenant isolation in application queries:
+
+```javascript
+// ❌ WRONG - Missing tenant check
+const trips = await db.query('SELECT * FROM trips WHERE id = ?', [tripId]);
+
+// ✅ CORRECT - Include tenant_id
+const trips = await db.query(
+  'SELECT * FROM trips WHERE id = ? AND tenant_id = ?',
+  [tripId, tenantId]
+);
+```
+
+### Password Security | أمان كلمات المرور
+
+- Store only hashed passwords using bcrypt/argon2
+- Never store plain text passwords
+- Implement password complexity requirements
+- Use password reset tokens with expiration
+
+### Payment Security | أمان الدفع
+
+- Store only tokenized card data
+- Never store full card numbers or CVV
+- Use PCI-compliant payment gateways
+- Log all payment transactions in `audit_logs`
+
+### API Security | أمان API
+
+- Implement rate limiting on authentication endpoints
+- Use JWT tokens with short expiration times
+- Log all sensitive operations in `logs` and `audit_logs` tables
+- Implement IP-based access controls for admin operations
+
+---
+
+## Performance Optimization | تحسين الأداء
+
+### Partitioning Strategy | استراتيجية التقسيم
+
+For high-volume tables, consider partitioning:
+
+```sql
+-- Partition GPS data by month
+CREATE TABLE gps_data (
+  ...
+) PARTITION BY RANGE (YEAR(timestamp)*100 + MONTH(timestamp)) (
+  PARTITION p202401 VALUES LESS THAN (202402),
+  PARTITION p202402 VALUES LESS THAN (202403),
+  ...
+);
+
+-- Partition logs by tenant
+CREATE TABLE logs (
+  ...
+) PARTITION BY HASH(tenant_id) PARTITIONS 16;
+```
+
+### Caching Strategy | استراتيجية التخزين المؤقت
+
+**Cache frequently accessed data:**
+- Enum table values (statuses, types)
+- Tenant settings and configuration
+- Active route information
+- User permissions and roles
+
+**Use Redis/Memcached for:**
+- Session data
+- Real-time GPS coordinates
+- Active trip information
+- Recent notifications
+
+### Query Optimization | تحسين الاستعلامات
+
+1. **Use EXPLAIN ANALYZE** to identify slow queries
+2. **Add covering indexes** for frequently joined columns
+3. **Denormalize** when necessary (e.g., `available_seats` in trips)
+4. **Archive old data** to separate tables (older than 1 year)
+5. **Use materialized views** for complex analytics queries
+
+---
+
+## Backup & Maintenance | النسخ الاحتياطي والصيانة
+
+### Backup Strategy | استراتيجية النسخ الاحتياطي
+
+1. **Full backups**: Daily at off-peak hours
+2. **Incremental backups**: Every 6 hours
+3. **Transaction log backups**: Every 15 minutes
+4. **Retention**: 30 days for full, 7 days for incremental
+5. **Test restores**: Weekly validation
+
+### Data Archival | أرشفة البيانات
+
+Archive old records to maintain performance:
+
+```sql
+-- Archive completed trips older than 1 year
+INSERT INTO trips_archive 
+SELECT * FROM trips 
+WHERE status_id = (SELECT id FROM trip_statuses WHERE name = 'completed')
+  AND departure_time < NOW() - INTERVAL 1 YEAR;
+
+-- Delete archived records
+DELETE FROM trips 
+WHERE status_id = (SELECT id FROM trip_statuses WHERE name = 'completed')
+  AND departure_time < NOW() - INTERVAL 1 YEAR;
+```
+
+### Maintenance Tasks | مهام الصيانة
+
+```sql
+-- Optimize tables weekly
+OPTIMIZE TABLE trips, bookings, payments, gps_data;
+
+-- Update statistics
+ANALYZE TABLE trips, bookings, payments;
+
+-- Clean up old logs (older than 90 days)
+DELETE FROM logs WHERE timestamp < NOW() - INTERVAL 90 DAY;
+DELETE FROM gps_data WHERE timestamp < NOW() - INTERVAL 90 DAY;
+```
+
+---
+
+## Migration Guide | دليل الترحيل
+
+### Initial Setup | الإعداد الأولي
+
+1. Create enum tables first (no dependencies)
+2. Create tenant and user tables
+3. Create main business entity tables
+4. Create junction and relationship tables
+5. Create custom field tables
+6. Create indexes and constraints
+
+### Sample Migration Order | ترتيب الترحيل النموذجي
+
+```
+1. Enum tables (38-56)
+2. field_types (57)
+3. tenants (1)
+4. tenant_settings (2)
+5. users (3)
+6. roles & permissions (4-7)
+7. logs (8)
+8. drivers, buses, routes, stations (9-12)
+9. trips, trip_stations, trip_logs (13-15)
+10. passengers, bookings, subscriptions, tickets, loyalty_points (16-20)
+11. payments, payment_methods, revenues, expenses, financial_reports (21-25)
+12. notifications, support_tickets, support_replies, emergency_alerts (26-29)
+13. analytics_kpis, trip_performance (30-31)
+14. gps_data, bus_status_logs, map_layers (32-34)
+15. audit_logs, settings, attachments (35-37)
+16. Custom field definition tables (58, 60, 62, 64, 66, 68, 70)
+17. Custom field value tables (59, 61, 63, 65, 67, 69, 71)
+```
+
+---
+
+## API Integration Examples | أمثلة تكامل API
+
+### Create Booking with Custom Fields
+
+```javascript
+// 1. Create booking
+const booking = await db.query(`
+  INSERT INTO bookings (id, tenant_id, trip_id, user_id, seat_number, status_id, booking_date)
+  VALUES (?, ?, ?, ?, ?, 
+    (SELECT id FROM booking_statuses WHERE name = 'confirmed'),
+    NOW()
+  )
+`, [bookingId, tenantId, tripId, userId, seatNumber]);
+
+// 2. Add custom field values
+const customFields = [
+  { field_id: 1, value: 'Window preference' },
+  { field_id: 2, value: 'Extra luggage' }
+];
+
+for (const field of customFields) {
+  await db.query(`
+    INSERT INTO booking_custom_field_values (booking_id, custom_field_id, value)
+    VALUES (?, ?, ?)
+  `, [bookingId, field.field_id, field.value]);
+}
+```
+
+### Real-time Trip Tracking
+
+```javascript
+// Subscribe to GPS updates
+const tripTracking = await db.query(`
+  SELECT 
+    t.id as trip_id,
+    b.bus_number,
+    r.name as route_name,
+    gd.latitude,
+    gd.longitude,
+    gd.speed,
+    gd.timestamp,
+    ts.name as trip_status
+  FROM trips t
+  JOIN buses b ON t.bus_id = b.id
+  JOIN routes r ON t.route_id = r.id
+  JOIN trip_statuses ts ON t.status_id = ts.id
+  LEFT JOIN LATERAL (
+    SELECT latitude, longitude, speed, timestamp
+    FROM gps_data
+    WHERE bus_id = b.id
+    ORDER BY timestamp DESC
+    LIMIT 1
+  ) gd ON true
+  WHERE t.tenant_id = ? AND ts.name = 'active'
+`, [tenantId]);
+```
+
+---
+
+## Conclusion | الخاتمة
+
+This database schema provides a robust foundation for a multi-tenant transportation management SaaS platform. Key features include:
+
+يوفر مخطط قاعدة البيانات هذا أساسًا قويًا لمنصة SaaS لإدارة النقل متعددة العملاء. الميزات الرئيسية تشمل:
+
+- ✅ Complete data isolation per tenant
+- ✅ Flexible custom fields system
+- ✅ Normalized enum tables for better maintainability
+- ✅ Real-time tracking capabilities
+- ✅ Comprehensive audit trails
+- ✅ Financial reporting and analytics
+- ✅ Scalable architecture
+- ✅ Support for multiple languages (English/Arabic)
+
+**Total Tables: 71**
+- Main business tables: 37
+- Enum tables: 19
+- Custom field tables: 14
+- Helper/utility tables: 1
+
+---
+
+## License | الترخيص
+
+This schema documentation is provided as-is for educational and implementation purposes.
+
+---
+
+## Support | الدعم
+
+For questions or contributions, please refer to the project repository or contact the development team.
+
+لأي أسئلة أو مساهمات، يرجى الرجوع إلى مستودع المشروع أو الاتصال بفريق التطوير.
+
+## System Management | إدارة النظام والـ SaaS
 
 ### 1. `tenants`
 
@@ -26,7 +516,7 @@ Stores custom configuration settings for each tenant. Allows flexible key-value 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | key | VARCHAR(100) | NOT NULL | Setting key name |
 | value | TEXT | | Setting value |
 | updated_at | TIMESTAMP | | Last modification time |
@@ -37,12 +527,12 @@ Stores custom configuration settings for each tenant. Allows flexible key-value 
 
 Central user management table. Stores all system users including admins, supervisors, drivers, and passengers. Contains authentication credentials, profile information, and user status. Linked to tenant for data isolation.
 
-جدول إدارة المستخدمين المركزي. يخزن جميع مستخدمي النظام بما في ذلك المشرفين والمشرفين والسائقين والركاب. يحتوي على بيانات الاعتماد والمعلومات الشخصية وحالة المستخدم. مرتبط بالعميل لعزل البيانات.
+جدول إدارة المستخدمين المركزي. يخزن جميع مستخدمي النظام بما في ذلك المشرفين والسائقين والركاب. يحتوي على بيانات الاعتماد والمعلومات الشخصية وحالة المستخدم. مرتبط بالعميل لعزل البيانات.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | role_id | INT | FOREIGN KEY → user_roles_enum.id | Reference to user role |
 | name | VARCHAR(150) | NOT NULL | Full name |
 | email | VARCHAR(150) | UNIQUE, NOT NULL | Email address |
@@ -65,7 +555,7 @@ Defines custom roles for access control. Each tenant can create specific roles (
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | name | VARCHAR(100) | NOT NULL | Role name |
 | description | TEXT | | Role description |
 
@@ -120,11 +610,11 @@ System-wide activity log tracking all important actions. Records who did what, w
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | User who performed action |
 | action | VARCHAR(150) | NOT NULL | Action performed |
 | entity_type | VARCHAR(100) | | Type of entity affected |
-| entity_id | INT | | ID of affected entity |
+| entity_id | UUID | | ID of affected entity |
 | ip_address | VARCHAR(50) | | IP address of user |
 | timestamp | TIMESTAMP | NOT NULL | When action occurred |
 
@@ -141,7 +631,7 @@ Stores driver-specific information including license details, vehicle type, curr
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to user account |
 | license_number | VARCHAR(50) | NOT NULL | Driver's license number |
 | vehicle_type | VARCHAR(50) | | Type of vehicle assigned |
@@ -160,7 +650,7 @@ Complete bus/vehicle registry. Contains vehicle identification, capacity, type, 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | bus_number | VARCHAR(50) | UNIQUE, NOT NULL | Bus identification number |
 | capacity | INT | NOT NULL | Passenger capacity |
 | type | VARCHAR(50) | | Bus type/model |
@@ -179,7 +669,7 @@ Defines transportation routes with name, total distance, estimated travel time, 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | name | VARCHAR(150) | NOT NULL | Route name |
 | distance_km | DECIMAL(6,2) | | Total route distance in km |
 | estimated_time | TIME | | Estimated travel time |
@@ -196,7 +686,7 @@ Geographic waypoints along routes. Stores station name, GPS coordinates (latitud
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | name | VARCHAR(150) | NOT NULL | Station name |
 | latitude | DECIMAL(10,6) | NOT NULL | GPS latitude coordinate |
 | longitude | DECIMAL(10,6) | NOT NULL | GPS longitude coordinate |
@@ -214,7 +704,7 @@ Individual journey instances. Links a specific bus, driver, and route with depar
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | route_id | UUID | FOREIGN KEY → routes.id | Reference to route |
 | bus_id | UUID | FOREIGN KEY → buses.id | Reference to bus |
 | driver_id | UUID | FOREIGN KEY → drivers.id | Reference to driver |
@@ -271,7 +761,7 @@ Passenger-specific profiles linked to user accounts. Tracks subscription status 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to user account |
 | subscription_status_id | INT | FOREIGN KEY → subscription_statuses.id | Reference to subscription status |
 | points_balance | INT | DEFAULT 0 | Loyalty points balance |
@@ -287,7 +777,7 @@ Trip reservations made by passengers. Contains seat assignment, booking status, 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | trip_id | UUID | FOREIGN KEY → trips.id | Reference to trip |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to passenger |
 | seat_number | VARCHAR(10) | | Assigned seat number |
@@ -307,7 +797,7 @@ Recurring subscription plans for regular passengers. Manages subscription period
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to subscriber |
 | plan_name | VARCHAR(100) | NOT NULL | Subscription plan name |
 | start_date | DATE | NOT NULL | Subscription start date |
@@ -326,7 +816,7 @@ Digital tickets generated from bookings. Contains unique QR code for validation 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | booking_id | UUID | FOREIGN KEY → bookings.id | Reference to booking |
 | qr_code | TEXT | NOT NULL | QR code data |
 | issued_at | TIMESTAMP | NOT NULL | Ticket issuance time |
@@ -342,7 +832,7 @@ Transaction log for loyalty reward program. Records points earned or spent by pa
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to passenger |
 | points | INT | NOT NULL | Points earned/spent |
 | reason | VARCHAR(255) | NOT NULL | Transaction reason |
@@ -361,7 +851,7 @@ Complete payment transaction records. Stores amount, payment method (wallet/card
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to payer |
 | amount | DECIMAL(10,2) | NOT NULL | Payment amount |
 | method_id | INT | FOREIGN KEY → payment_types.id | Reference to payment type |
@@ -384,7 +874,7 @@ Saved payment methods for users. Stores tokenized card information (last 4 digit
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | Reference to user |
 | type_id | INT | FOREIGN KEY → payment_methods_enum.id | Reference to payment method type |
 | provider | VARCHAR(50) | | Provider name |
@@ -404,7 +894,7 @@ Daily revenue aggregation table. Summarizes total income and trip count per day 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | date | DATE | NOT NULL | Revenue date |
 | total_amount | DECIMAL(12,2) | NOT NULL | Total revenue |
 | trips_count | INT | NOT NULL | Number of trips |
@@ -421,7 +911,7 @@ Operating expenses tracking. Records all business costs categorized by type (mai
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | description | VARCHAR(255) | NOT NULL | Expense description |
 | amount | DECIMAL(10,2) | NOT NULL | Expense amount |
 | category | VARCHAR(100) | | Expense category |
@@ -439,7 +929,7 @@ Generated financial report metadata. Stores report type, date range, and file pa
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | report_type_id | INT | FOREIGN KEY → financial_report_types.id | Reference to report type |
 | start_date | DATE | NOT NULL | Report start date |
 | end_date | DATE | NOT NULL | Report end date |
@@ -459,7 +949,7 @@ Push notification management system. Handles alerts, delays, route changes, emer
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | title | VARCHAR(150) | NOT NULL | Notification title |
 | message | TEXT | NOT NULL | Notification message |
 | type_id | INT | FOREIGN KEY → notification_types.id | Reference to notification type |
@@ -480,7 +970,7 @@ Customer support ticket system. Users can submit issues or requests with subject
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | user_id | UUID | FOREIGN KEY → users.id | User who created ticket |
 | subject | VARCHAR(200) | NOT NULL | Ticket subject |
 | message | TEXT | NOT NULL | Ticket description |
@@ -515,7 +1005,7 @@ Critical emergency notification system. Drivers can send urgent alerts with loca
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | driver_id | UUID | FOREIGN KEY → drivers.id | Driver who sent alert |
 | trip_id | UUID | FOREIGN KEY → trips.id | Related trip |
 | message | TEXT | NOT NULL | Emergency message |
@@ -536,7 +1026,7 @@ Real-time key performance indicators. Tracks metrics like active buses, daily pa
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | metric_name | VARCHAR(100) | NOT NULL | KPI metric name |
 | value | DECIMAL(12,2) | NOT NULL | Metric value |
 | timestamp | TIMESTAMP | NOT NULL | Measurement timestamp |
@@ -604,7 +1094,7 @@ Custom map visualization layers. Stores GeoJSON data for route overlays, heatmap
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | type_id | INT | FOREIGN KEY → map_layer_types.id | Reference to map layer type |
 | data | JSON | NOT NULL | GeoJSON layer data |
 | visible | BOOLEAN | DEFAULT TRUE | Layer visibility |
@@ -642,7 +1132,7 @@ Global system configuration key-value store. Manages application-wide settings t
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | key | VARCHAR(100) | NOT NULL | Setting key |
 | value | TEXT | | Setting value |
 | updated_at | TIMESTAMP | | Last update time |
@@ -658,7 +1148,7 @@ Universal file attachment system. Links documents, images, and files to any enti
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| tenant_id | INT | FOREIGN KEY → tenants.id | Reference to tenant |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
 | entity_type | VARCHAR(100) | NOT NULL | Type of entity attached to |
 | entity_id | UUID | NOT NULL | ID of entity |
 | file_path | VARCHAR(255) | NOT NULL | File storage path |
@@ -961,3 +1451,294 @@ Map visualization layer types.
 
 **Values:** `route_overlay`, `heatmap`, `zones`
 
+---
+
+## Custom Fields System | نظام الحقول المخصصة
+
+The custom fields system allows each tenant to define additional fields for various entities, providing flexibility to extend the data model without schema changes.
+
+يتيح نظام الحقول المخصصة لكل عميل تحديد حقول إضافية لكيانات مختلفة، مما يوفر المرونة لتوسيع نموذج البيانات دون تغييرات في المخطط.
+
+### 57. `field_types`
+
+Defines available field data types for custom fields (text, number, date, file, boolean, select).
+
+يحدد أنواع بيانات الحقول المتاحة للحقول المخصصة (نص، رقم، تاريخ، ملف، منطقي، اختيار).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| name | VARCHAR(50) | UNIQUE, NOT NULL | Field type key |
+| label | VARCHAR(100) | | Display label |
+| description | TEXT | | Type description |
+
+**Values:** `text`, `number`, `date`, `file`, `boolean`, `select`
+
+---
+
+### User Custom Fields | الحقول المخصصة للمستخدمين
+
+#### 58. `user_custom_fields`
+
+Defines custom field definitions for users per tenant.
+
+يحدد تعريفات الحقول المخصصة للمستخدمين لكل عميل.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
+| name | VARCHAR(100) | NOT NULL | Field key (e.g., favorite_color) |
+| label | VARCHAR(150) | NOT NULL | Display label |
+| field_type_id | INT | FOREIGN KEY → field_types.id | Reference to field type |
+| required | BOOLEAN | DEFAULT FALSE | Is field required |
+| options | JSON | | Options for select fields |
+| created_at | TIMESTAMP | | Field creation time |
+| updated_at | TIMESTAMP | | Last modification time |
+
+---
+
+#### 59. `user_custom_field_values`
+
+Stores actual values for user custom fields.
+
+يخزن القيم الفعلية للحقول المخصصة للمستخدمين.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| user_id | UUID | FOREIGN KEY → users.id | Reference to user |
+| custom_field_id | INT | FOREIGN KEY → user_custom_fields.id | Reference to custom field |
+| value | TEXT | | Field value (stored as text) |
+| updated_at | TIMESTAMP | | Last update time |
+
+---
+
+### Driver Custom Fields | الحقول المخصصة للسائقين
+
+#### 60. `driver_custom_fields`
+
+Defines custom field definitions for drivers per tenant.
+
+يحدد تعريفات الحقول المخصصة للسائقين لكل عميل.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
+| name | VARCHAR(100) | NOT NULL | Field key |
+| label | VARCHAR(150) | NOT NULL | Display label |
+| field_type_id | INT | FOREIGN KEY → field_types.id | Reference to field type |
+| required | BOOLEAN | DEFAULT FALSE | Is field required |
+| options | JSON | | Options for select fields |
+| created_at | TIMESTAMP | | Field creation time |
+| updated_at | TIMESTAMP | | Last modification time |
+
+---
+
+#### 61. `driver_custom_field_values`
+
+Stores actual values for driver custom fields.
+
+يخزن القيم الفعلية للحقول المخصصة للسائقين.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| driver_id | UUID | FOREIGN KEY → drivers.id | Reference to driver |
+| custom_field_id | INT | FOREIGN KEY → driver_custom_fields.id | Reference to custom field |
+| value | TEXT | | Field value (stored as text) |
+| updated_at | TIMESTAMP | | Last update time |
+
+---
+
+### Bus Custom Fields | الحقول المخصصة للحافلات
+
+#### 62. `bus_custom_fields`
+
+Defines custom field definitions for buses per tenant.
+
+يحدد تعريفات الحقول المخصصة للحافلات لكل عميل.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
+| name | VARCHAR(100) | NOT NULL | Field key |
+| label | VARCHAR(150) | NOT NULL | Display label |
+| field_type_id | INT | FOREIGN KEY → field_types.id | Reference to field type |
+| required | BOOLEAN | DEFAULT FALSE | Is field required |
+| options | JSON | | Options for select fields |
+| created_at | TIMESTAMP | | Field creation time |
+| updated_at | TIMESTAMP | | Last modification time |
+
+---
+
+#### 63. `bus_custom_field_values`
+
+Stores actual values for bus custom fields.
+
+يخزن القيم الفعلية للحقول المخصصة للحافلات.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| bus_id | UUID | FOREIGN KEY → buses.id | Reference to bus |
+| custom_field_id | INT | FOREIGN KEY → bus_custom_fields.id | Reference to custom field |
+| value | TEXT | | Field value (stored as text) |
+| updated_at | TIMESTAMP | | Last update time |
+
+---
+
+### Passenger Custom Fields | الحقول المخصصة للركاب
+
+#### 64. `passenger_custom_fields`
+
+Defines custom field definitions for passengers per tenant.
+
+يحدد تعريفات الحقول المخصصة للركاب لكل عميل.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
+| name | VARCHAR(100) | NOT NULL | Field key |
+| label | VARCHAR(150) | NOT NULL | Display label |
+| field_type_id | INT | FOREIGN KEY → field_types.id | Reference to field type |
+| required | BOOLEAN | DEFAULT FALSE | Is field required |
+| options | JSON | | Options for select fields |
+| created_at | TIMESTAMP | | Field creation time |
+| updated_at | TIMESTAMP | | Last modification time |
+
+---
+
+#### 65. `passenger_custom_field_values`
+
+Stores actual values for passenger custom fields.
+
+يخزن القيم الفعلية للحقول المخصصة للركاب.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| passenger_id | UUID | FOREIGN KEY → passengers.id | Reference to passenger |
+| custom_field_id | INT | FOREIGN KEY → passenger_custom_fields.id | Reference to custom field |
+| value | TEXT | | Field value (stored as text) |
+| updated_at | TIMESTAMP | | Last update time |
+
+---
+
+### Trip Custom Fields | الحقول المخصصة للرحلات
+
+#### 66. `trip_custom_fields`
+
+Defines custom field definitions for trips per tenant.
+
+يحدد تعريفات الحقول المخصصة للرحلات لكل عميل.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
+| name | VARCHAR(100) | NOT NULL | Field key |
+| label | VARCHAR(150) | NOT NULL | Display label |
+| field_type_id | INT | FOREIGN KEY → field_types.id | Reference to field type |
+| required | BOOLEAN | DEFAULT FALSE | Is field required |
+| options | JSON | | Options for select fields |
+| created_at | TIMESTAMP | | Field creation time |
+| updated_at | TIMESTAMP | | Last modification time |
+
+---
+
+#### 67. `trip_custom_field_values`
+
+Stores actual values for trip custom fields.
+
+يخزن القيم الفعلية للحقول المخصصة للرحلات.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| trip_id | UUID | FOREIGN KEY → trips.id | Reference to trip |
+| custom_field_id | INT | FOREIGN KEY → trip_custom_fields.id | Reference to custom field |
+| value | TEXT | | Field value (stored as text) |
+| updated_at | TIMESTAMP | | Last update time |
+
+---
+
+### Booking Custom Fields | الحقول المخصصة للحجوزات
+
+#### 68. `booking_custom_fields`
+
+Defines custom field definitions for bookings per tenant.
+
+يحدد تعريفات الحقول المخصصة للحجوزات لكل عميل.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
+| name | VARCHAR(100) | NOT NULL | Field key |
+| label | VARCHAR(150) | NOT NULL | Display label |
+| field_type_id | INT | FOREIGN KEY → field_types.id | Reference to field type |
+| required | BOOLEAN | DEFAULT FALSE | Is field required |
+| options | JSON | | Options for select fields |
+| created_at | TIMESTAMP | | Field creation time |
+| updated_at | TIMESTAMP | | Last modification time |
+
+---
+
+#### 69. `booking_custom_field_values`
+
+Stores actual values for booking custom fields.
+
+يخزن القيم الفعلية للحقول المخصصة للحجوزات.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| booking_id | UUID | FOREIGN KEY → bookings.id | Reference to booking |
+| custom_field_id | INT | FOREIGN KEY → booking_custom_fields.id | Reference to custom field |
+| value | TEXT | | Field value (stored as text) |
+| updated_at | TIMESTAMP | | Last update time |
+
+---
+
+### Route Custom Fields | الحقول المخصصة للمسارات
+
+#### 70. `route_custom_fields`
+
+Defines custom field definitions for routes per tenant.
+
+يحدد تعريفات الحقول المخصصة للمسارات لكل عميل.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| tenant_id | UUID | FOREIGN KEY → tenants.id | Reference to tenant |
+| name | VARCHAR(100) | NOT NULL | Field key |
+| label | VARCHAR(150) | NOT NULL | Display label |
+| field_type_id | INT | FOREIGN KEY → field_types.id | Reference to field type |
+| required | BOOLEAN | DEFAULT FALSE | Is field required |
+| options | JSON | | Options for select fields |
+| created_at | TIMESTAMP | | Field creation time |
+| updated_at | TIMESTAMP | | Last modification time |
+
+---
+
+
+#### 71. `route_custom_field_values`
+
+Stores actual values for route custom fields.
+
+يخزن القيم الفعلية للحقول المخصصة للمسارات.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
+| route_id | UUID | FOREIGN KEY → routes.id | Reference to route |
+| custom_field_id | INT | FOREIGN KEY → route_custom_fields.id | Reference to custom field |
+| value | TEXT | | Field value (stored as text) |
+| updated_at | TIMESTAMP | | Last update time |
+
+---
