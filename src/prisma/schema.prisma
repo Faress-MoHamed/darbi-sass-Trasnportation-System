@@ -1,0 +1,1034 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum PlanType {
+  basic
+  pro
+  enterprise
+}
+
+enum TenantStatus {
+  active
+  suspended
+  inactive
+}
+
+enum UserRoleEnum {
+  SuperAdmin
+  admin
+  supervisor
+  driver
+  passenger
+}
+
+enum UserStatus {
+  active
+  banned
+  pending
+}
+
+enum FieldType {
+  text
+  number
+  date
+  file
+  boolean
+  select
+}
+
+enum DriverStatus {
+  available
+  unavailable
+  offline
+}
+
+enum BusStatus {
+  active
+  maintenance
+  stopped
+}
+
+enum TripStatus {
+  active
+  completed
+  cancelled
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+}
+
+enum BookingStatus {
+  confirmed
+  cancelled
+  pending
+}
+
+enum PaymentMethodEnum {
+  wallet
+  credit_card
+  debit_card
+}
+
+enum PaymentStatus {
+  success
+  failed
+  pending
+  refunded
+}
+
+enum PaymentType {
+  wallet
+  card
+  cash
+}
+
+enum FinancialReportType {
+  revenue
+  expense
+  summary
+}
+
+enum NotificationType {
+  alert
+  delay
+  route_change
+  emergency
+  promo
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+}
+
+enum SupportTicketStatus {
+  open
+  in_progress
+  closed
+}
+
+enum BusOperationStatus {
+  active
+  idle
+  stopped
+  maintenance
+}
+
+enum MapLayerType {
+  route_overlay
+  heatmap
+  zones
+}
+
+enum AuditActionType {
+  create
+  update
+  delete
+}
+
+// ============================================================================
+// Access Tokens
+// ============================================================================
+
+model AccessToken {
+  id               String    @id @default(uuid())
+  token            String    @unique
+  refreshToken     String    @unique @map("refresh_token")
+  userId           String    @map("user_id") @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  user             User      @relation(fields: [userId], references: [id])
+  tenant           Tenant    @relation("tenant_to_accessToken",fields: [tenantId],references: [id])
+  createdAt        DateTime  @default(now()) @map("created_at")
+  expiresAt        DateTime? @map("expires_at")
+  refreshExpiresAt DateTime? @map("refresh_expires_at")
+
+  @@map("access_tokens")
+}
+
+// ============================================================================
+// Main Tables - Tenancy & Users
+// ============================================================================
+
+model Tenant {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  name                    String                   @db.VarChar(150)
+  planType                PlanType                 @map("plan_type")
+  status                  TenantStatus
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+
+  tenantSettings          TenantSetting[]
+  users                   User[]
+  roles                   Role[]
+  logs                    Log[]
+  drivers                 Driver[]
+  buses                   Bus[]
+  routes                  Route[]
+  stations                Station[]
+  trips                   Trip[]
+  passengers              Passenger[]
+  bookings                Booking[]
+  subscriptions           Subscription[]
+  tickets                 Ticket[]
+  loyaltyPoints           LoyaltyPoint[]
+  payments                Payment[]
+  paymentMethods          PaymentMethod[]
+  revenues                Revenue[]
+  expenses                Expense[]
+  financialReports        FinancialReport[]
+  notifications           Notification[]
+  supportTickets          SupportTicket[]
+  emergencyAlerts         EmergencyAlert[]
+  analyticsKpis           AnalyticsKpi[]
+  mapLayers               MapLayer[]
+  settings                Setting[]
+  attachments             Attachment[]
+  userCustomFields        UserCustomField[]
+  driverCustomFields      DriverCustomField[]
+  busCustomFields         BusCustomField[]
+  passengerCustomFields   PassengerCustomField[]
+  tripCustomFields        TripCustomField[]
+  bookingCustomFields     BookingCustomField[]
+  routeCustomFields       RouteCustomField[]
+
+  @@map("tenants")
+  accessTokens AccessToken[] @relation("tenant_to_accessToken")
+}
+
+model TenantSetting {
+  id        Int      @id @default(autoincrement())
+  tenantId  String   @map("tenant_id") @db.Uuid
+  key       String   @db.VarChar(100)
+  value     String?  @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("tenant_settings")
+}
+
+model User {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  tenantId                String                   @map("tenant_id") @db.Uuid
+  role                    UserRoleEnum              @default(passenger)
+  name                    String?                   @db.VarChar(150)
+  email                   String?                   @unique @db.VarChar(150)
+  phone                   String                  @db.VarChar(20)
+  password            String                  @map("password") @db.Text
+  avatar                  String?                  @db.VarChar(255)
+  language                String?                  @db.VarChar(10)
+  status                  UserStatus
+  lastLogin               DateTime?                @map("last_login")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  mustChangePassword        Boolean                   @default(true)
+
+  tenant                  Tenant                   @relation(fields: [tenantId], references: [id])
+
+  logs                    Log[]
+  driver                  Driver?
+  passenger               Passenger?
+  userRoles               UserRole[]
+  bookings                Booking[]
+  subscriptions           Subscription[]
+  loyaltyPoints           LoyaltyPoint[]
+  payments                Payment[]
+  paymentMethods          PaymentMethod[]
+  notifications           Notification[]
+  supportTickets          SupportTicket[]
+  supportReplies          SupportReply[]
+  auditLogs               AuditLog[]
+  customFieldValues       UserCustomFieldValue[]
+  accessTokens            AccessToken[]
+
+  @@map("users")
+}
+
+model Role {
+  id              Int              @id @default(autoincrement())
+  tenantId        String           @map("tenant_id") @db.Uuid
+  name            String           @db.VarChar(100)
+  description     String?          @db.Text
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  key             String           @unique @db.VarChar(100)
+  description     String?          @db.Text
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       Int        @map("role_id")
+  permissionId Int        @map("permission_id")
+
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId  String @map("user_id") @db.Uuid
+  roleId  Int    @map("role_id")
+
+  user    User   @relation(fields: [userId], references: [id])
+  role    Role   @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Log {
+  id         BigInt    @id @default(autoincrement())
+  tenantId   String    @map("tenant_id") @db.Uuid
+  userId     String?   @map("user_id") @db.Uuid
+  action     String    @db.VarChar(150)
+  entityType String?   @map("entity_type") @db.VarChar(100)
+  entityId   String?   @map("entity_id") @db.Uuid
+  ipAddress  String?   @map("ip_address") @db.VarChar(50)
+  timestamp  DateTime  @default(now())
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  user       User?     @relation(fields: [userId], references: [id])
+
+  @@map("logs")
+}
+
+// ============================================================================
+// Transport Management
+// ============================================================================
+
+model Driver {
+  id                String                    @id @default(uuid()) @db.Uuid
+  tenantId          String                    @map("tenant_id") @db.Uuid
+  userId            String                    @unique @map("user_id") @db.Uuid
+  licenseNumber     String?                   @map("license_number") @db.VarChar(50)
+  vehicleType       String?                   @map("vehicle_type") @db.VarChar(50)
+  status            DriverStatus
+  rating            Decimal?                  @db.Decimal(2, 1)
+  connected         Boolean?
+
+  tenant            Tenant                    @relation(fields: [tenantId], references: [id])
+  user              User                      @relation(fields: [userId], references: [id])
+
+  trips             Trip[]
+  emergencyAlerts   EmergencyAlert[]
+  customFieldValues DriverCustomFieldValue[]
+
+  @@map("drivers")
+}
+
+model Bus {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  tenantId            String                 @map("tenant_id") @db.Uuid
+  busNumber           String                 @map("bus_number") @db.VarChar(50)
+  capacity            Int?
+  type                String?                @db.VarChar(50)
+  status              BusStatus
+  gpsTrackerId        String?                @map("gps_tracker_id") @db.VarChar(100)
+  maintenanceStatus   String?                @map("maintenance_status") @db.VarChar(100)
+
+  tenant              Tenant                 @relation(fields: [tenantId], references: [id])
+
+  trips               Trip[]
+  gpsData             GpsData[]
+  busStatusLogs       BusStatusLog[]
+  customFieldValues   BusCustomFieldValue[]
+
+  @@map("buses")
+}
+
+model Route {
+  id                String                  @id @default(uuid()) @db.Uuid
+  tenantId          String                  @map("tenant_id") @db.Uuid
+  name              String                  @db.VarChar(150)
+  distanceKm        Decimal?                @map("distance_km") @db.Decimal(6, 2)
+  estimatedTime     DateTime?               @map("estimated_time") @db.Time
+  active            Boolean?
+
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id])
+
+  stations          Station[]
+  trips             Trip[]
+  customFieldValues RouteCustomFieldValue[]
+
+  @@map("routes")
+}
+
+model Station {
+  id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String         @map("tenant_id") @db.Uuid
+  name         String         @db.VarChar(150)
+  latitude     Decimal?       @db.Decimal(10, 6)
+  longitude    Decimal?       @db.Decimal(10, 6)
+  routeId      String?        @map("route_id") @db.Uuid
+  sequence     Int?
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  route        Route?         @relation(fields: [routeId], references: [id])
+
+  tripStations TripStation[]
+
+  @@map("stations")
+}
+
+model Trip {
+  id                String                 @id @default(uuid()) @db.Uuid
+  tenantId          String                 @map("tenant_id") @db.Uuid
+  routeId           String?                @map("route_id") @db.Uuid
+  busId             String?                @map("bus_id") @db.Uuid
+  driverId          String?                @map("driver_id") @db.Uuid
+  departureTime     DateTime?              @map("departure_time")
+  arrivalTime       DateTime?              @map("arrival_time")
+  status            TripStatus
+  availableSeats    Int?                   @map("available_seats")
+  notes             String?                @db.Text
+
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id])
+  route             Route?                 @relation(fields: [routeId], references: [id])
+  bus               Bus?                   @relation(fields: [busId], references: [id])
+  driver            Driver?                @relation(fields: [driverId], references: [id])
+
+  tripStations      TripStation[]
+  tripLogs          TripLog[]
+  bookings          Booking[]
+  emergencyAlerts   EmergencyAlert[]
+  tripPerformance   TripPerformance[]
+  customFieldValues TripCustomFieldValue[]
+
+  @@map("trips")
+}
+
+model TripStation {
+  tripId               String    @map("trip_id") @db.Uuid
+  stationId            String    @map("station_id") @db.Uuid
+  scheduledArrivalTime DateTime? @map("scheduled_arrival_time")
+  actualArrivalTime    DateTime? @map("actual_arrival_time")
+  departureTime        DateTime? @map("departure_time")
+
+  trip                 Trip      @relation(fields: [tripId], references: [id])
+  station              Station   @relation(fields: [stationId], references: [id])
+
+  @@id([tripId, stationId])
+  @@map("trip_stations")
+}
+
+model TripLog {
+  id              BigInt    @id @default(autoincrement())
+  tripId          String    @map("trip_id") @db.Uuid
+  busLocationLat  Decimal?  @map("bus_location_lat") @db.Decimal(10, 6)
+  busLocationLng  Decimal?  @map("bus_location_lng") @db.Decimal(10, 6)
+  speed           Decimal?  @db.Decimal(5, 2)
+  passengersCount Int?      @map("passengers_count")
+  timestamp       DateTime  @default(now())
+
+  trip            Trip      @relation(fields: [tripId], references: [id])
+
+  @@map("trip_logs")
+}
+
+// ============================================================================
+// Passengers & Bookings
+// ============================================================================
+
+model Passenger {
+  id                     String                      @id @default(uuid()) @db.Uuid
+  tenantId               String                      @map("tenant_id") @db.Uuid
+  userId                 String                      @unique @map("user_id") @db.Uuid
+  subscriptionStatus     SubscriptionStatus?         @map("subscription_status")
+  pointsBalance          Int?                        @map("points_balance")
+
+  tenant                 Tenant                      @relation(fields: [tenantId], references: [id])
+  user                   User                        @relation(fields: [userId], references: [id])
+
+  customFieldValues      PassengerCustomFieldValue[]
+
+  @@map("passengers")
+}
+
+model Booking {
+  id                String                    @id @default(uuid()) @db.Uuid
+  tenantId          String                    @map("tenant_id") @db.Uuid
+  tripId            String?                   @map("trip_id") @db.Uuid
+  userId            String?                   @map("user_id") @db.Uuid
+  seatNumber        String?                   @map("seat_number") @db.VarChar(10)
+  status            BookingStatus
+  ticketNumber      String?                   @map("ticket_number") @db.VarChar(100)
+  bookingDate       DateTime?                 @map("booking_date")
+  paymentId         String?                   @map("payment_id") @db.Uuid
+
+  tenant            Tenant                    @relation(fields: [tenantId], references: [id])
+  trip              Trip?                     @relation(fields: [tripId], references: [id])
+  user              User?                     @relation(fields: [userId], references: [id])
+  payment           Payment?                  @relation(fields: [paymentId], references: [id])
+
+  tickets           Ticket[]
+  customFieldValues BookingCustomFieldValue[]
+
+  @@map("bookings")
+}
+
+model Subscription {
+  id        String              @id @default(uuid()) @db.Uuid
+  tenantId  String              @map("tenant_id") @db.Uuid
+  userId    String?             @map("user_id") @db.Uuid
+  planName  String?             @map("plan_name") @db.VarChar(100)
+  startDate DateTime?           @map("start_date") @db.Date
+  endDate   DateTime?           @map("end_date") @db.Date
+  status    SubscriptionStatus
+  price     Decimal?            @db.Decimal(10, 2)
+
+  tenant    Tenant              @relation(fields: [tenantId], references: [id])
+  user      User?               @relation(fields: [userId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model Ticket {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  bookingId String?   @map("booking_id") @db.Uuid
+  qrCode    String?   @map("qr_code") @db.Text
+  issuedAt  DateTime? @map("issued_at")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  booking   Booking?  @relation(fields: [bookingId], references: [id])
+
+  @@map("tickets")
+}
+
+model LoyaltyPoint {
+  id        BigInt   @id @default(autoincrement())
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  points    Int?
+  reason    String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@map("loyalty_points")
+}
+
+// ============================================================================
+// Payments & Financial Reports
+// ============================================================================
+
+model Payment {
+  id            String        @id @default(uuid()) @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  userId        String?       @map("user_id") @db.Uuid
+  amount        Decimal?      @db.Decimal(10, 2)
+  method        PaymentType
+  provider      String?       @db.VarChar(50)
+  transactionId String?       @map("transaction_id") @db.VarChar(150)
+  status        PaymentStatus
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  reference     String?       @db.VarChar(100)
+  notes         String?       @db.Text
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  user          User?         @relation(fields: [userId], references: [id])
+
+  bookings      Booking[]
+
+  @@map("payments")
+}
+
+model PaymentMethod {
+  id        String            @id @default(uuid()) @db.Uuid
+  tenantId  String            @map("tenant_id") @db.Uuid
+  userId    String?           @map("user_id") @db.Uuid
+  type      PaymentMethodEnum
+  provider  String?           @db.VarChar(50)
+  last4     String?           @db.VarChar(4)
+  token     String?           @db.VarChar(255)
+  isDefault Boolean?          @map("is_default")
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  user      User?             @relation(fields: [userId], references: [id])
+
+  @@map("payment_methods")
+}
+
+model Revenue {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  date        DateTime @db.Date
+  totalAmount Decimal? @map("total_amount") @db.Decimal(12, 2)
+  tripsCount  Int?     @map("trips_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("revenues")
+}
+
+model Expense {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  description String?  @db.VarChar(255)
+  amount      Decimal? @db.Decimal(10, 2)
+  category    String?  @db.VarChar(100)
+  date        DateTime @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("expenses")
+}
+
+model FinancialReport {
+  id           String               @id @default(uuid()) @db.Uuid
+  tenantId     String               @map("tenant_id") @db.Uuid
+  reportType   FinancialReportType  @map("report_type")
+  startDate    DateTime             @map("start_date") @db.Date
+  endDate      DateTime             @map("end_date") @db.Date
+  filePath     String?              @map("file_path") @db.VarChar(255)
+  createdAt    DateTime             @default(now()) @map("created_at")
+
+  tenant       Tenant               @relation(fields: [tenantId], references: [id])
+
+  @@map("financial_reports")
+}
+
+// ============================================================================
+// Notifications & Support
+// ============================================================================
+
+model Notification {
+  id           String             @id @default(uuid()) @db.Uuid
+  tenantId     String             @map("tenant_id") @db.Uuid
+  title        String?            @db.VarChar(150)
+  message      String?            @db.Text
+  type         NotificationType
+  targetUserId String?            @map("target_user_id") @db.Uuid
+  scheduledAt  DateTime?          @map("scheduled_at")
+  sentAt       DateTime?          @map("sent_at")
+  status       NotificationStatus
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id])
+  targetUser   User?              @relation(fields: [targetUserId], references: [id])
+
+  @@map("notifications")
+}
+
+model SupportTicket {
+  id        String              @id @default(uuid()) @db.Uuid
+  tenantId  String              @map("tenant_id") @db.Uuid
+  userId    String?             @map("user_id") @db.Uuid
+  subject   String?             @db.VarChar(200)
+  message   String?             @db.Text
+  status    SupportTicketStatus
+  createdAt DateTime            @default(now()) @map("created_at")
+  closedAt  DateTime?           @map("closed_at")
+
+  tenant    Tenant              @relation(fields: [tenantId], references: [id])
+  user      User?               @relation(fields: [userId], references: [id])
+
+  replies   SupportReply[]
+
+  @@map("support_tickets")
+}
+
+model SupportReply {
+  id        String        @id @default(uuid()) @db.Uuid
+  ticketId  String        @map("ticket_id") @db.Uuid
+  senderId  String?       @map("sender_id") @db.Uuid
+  message   String?       @db.Text
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id])
+  sender    User?         @relation(fields: [senderId], references: [id])
+
+  @@map("support_replies")
+}
+
+model EmergencyAlert {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  driverId    String?  @map("driver_id") @db.Uuid
+  tripId      String?  @map("trip_id") @db.Uuid
+  message     String?  @db.Text
+  locationLat Decimal? @map("location_lat") @db.Decimal(10, 6)
+  locationLng Decimal? @map("location_lng") @db.Decimal(10, 6)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  driver      Driver?  @relation(fields: [driverId], references: [id])
+  trip        Trip?    @relation(fields: [tripId], references: [id])
+
+  @@map("emergency_alerts")
+}
+
+// ============================================================================
+// Analytics & Statistics
+// ============================================================================
+
+model AnalyticsKpi {
+  id         BigInt   @id @default(autoincrement())
+  tenantId   String   @map("tenant_id") @db.Uuid
+  metricName String?  @map("metric_name") @db.VarChar(100)
+  value      Decimal? @db.Decimal(12, 2)
+  timestamp  DateTime @default(now())
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("analytics_kpis")
+}
+
+model TripPerformance {
+  id                 BigInt   @id @default(autoincrement())
+  tripId             String   @map("trip_id") @db.Uuid
+  delaysCount        Int?     @map("delays_count")
+  cancellationsCount Int?     @map("cancellations_count")
+  avgOccupancy       Decimal? @map("avg_occupancy") @db.Decimal(5, 2)
+  rating             Decimal? @db.Decimal(2, 1)
+  recordedAt         DateTime @map("recorded_at")
+
+  trip               Trip     @relation(fields: [tripId], references: [id])
+
+  @@map("trip_performance")
+}
+
+// ============================================================================
+// Maps & Tracking
+// ============================================================================
+
+model GpsData {
+  id        BigInt   @id @default(autoincrement())
+  busId     String   @map("bus_id") @db.Uuid
+  latitude  Decimal? @db.Decimal(10, 6)
+  longitude Decimal? @db.Decimal(10, 6)
+  speed     Decimal? @db.Decimal(5, 2)
+  timestamp DateTime @default(now())
+
+  bus       Bus      @relation(fields: [busId], references: [id])
+
+  @@map("gps_data")
+}
+
+model BusStatusLog {
+  id        BigInt             @id @default(autoincrement())
+  busId     String             @map("bus_id") @db.Uuid
+  status    BusOperationStatus
+  timestamp DateTime           @default(now())
+
+  bus       Bus                @relation(fields: [busId], references: [id])
+
+  @@map("bus_status_logs")
+}
+
+model MapLayer {
+  id        Int          @id @default(autoincrement())
+  tenantId  String       @map("tenant_id") @db.Uuid
+  type      MapLayerType
+  data      Json?
+  visible   Boolean?
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+
+  @@map("map_layers")
+}
+
+// ============================================================================
+// Helper Tables
+// ============================================================================
+
+model AuditLog {
+  id         BigInt          @id @default(autoincrement())
+  userId     String?         @map("user_id") @db.Uuid
+  entityType String?         @map("entity_type") @db.VarChar(100)
+  entityId   String?         @map("entity_id") @db.Uuid
+  action     AuditActionType
+  oldData    Json?           @map("old_data")
+  newData    Json?           @map("new_data")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  user       User?           @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  tenantId  String   @map("tenant_id") @db.Uuid
+  key       String   @db.VarChar(100)
+  value     String?  @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("settings")
+}
+
+model Attachment {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  entityType String?  @map("entity_type") @db.VarChar(100)
+  entityId   String?  @map("entity_id") @db.Uuid
+  filePath   String?  @map("file_path") @db.VarChar(255)
+  uploadedAt DateTime @map("uploaded_at")
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("attachments")
+}
+
+// ============================================================================
+// Custom Fields (Dynamic per Tenant per Entity)
+// ============================================================================
+
+// -------------- Users --------------
+model UserCustomField {
+  id         Int                       @id @default(autoincrement())
+  tenantId   String                    @map("tenant_id") @db.Uuid
+  name       String                    @db.VarChar(100)
+  label      String                    @db.VarChar(150)
+  fieldType  FieldType                 @map("field_type")
+  required   Boolean?
+  options    Json?
+  createdAt  DateTime                  @default(now()) @map("created_at")
+  updatedAt  DateTime                  @updatedAt @map("updated_at")
+
+  tenant     Tenant                    @relation(fields: [tenantId], references: [id])
+
+  values     UserCustomFieldValue[]
+
+  @@map("user_custom_fields")
+}
+
+model UserCustomFieldValue {
+  id            BigInt          @id @default(autoincrement())
+  userId        String          @map("user_id") @db.Uuid
+  customFieldId Int             @map("custom_field_id")
+  value         String?         @db.Text
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  user          User            @relation(fields: [userId], references: [id])
+  customField   UserCustomField @relation(fields: [customFieldId], references: [id])
+
+  @@map("user_custom_field_values")
+}
+
+// -------------- Drivers --------------
+model DriverCustomField {
+  id         Int                         @id @default(autoincrement())
+  tenantId   String                      @map("tenant_id") @db.Uuid
+  name       String                      @db.VarChar(100)
+  label      String                      @db.VarChar(150)
+  fieldType  FieldType                   @map("field_type")
+  required   Boolean?
+  options    Json?
+  createdAt  DateTime                    @default(now()) @map("created_at")
+  updatedAt  DateTime                    @updatedAt @map("updated_at")
+
+  tenant     Tenant                      @relation(fields: [tenantId], references: [id])
+
+  values     DriverCustomFieldValue[]
+
+  @@map("driver_custom_fields")
+}
+
+model DriverCustomFieldValue {
+  id            BigInt              @id @default(autoincrement())
+  driverId      String              @map("driver_id") @db.Uuid
+  customFieldId Int                 @map("custom_field_id")
+  value         String?             @db.Text
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  driver        Driver              @relation(fields: [driverId], references: [id])
+  customField   DriverCustomField   @relation(fields: [customFieldId], references: [id])
+
+  @@map("driver_custom_field_values")
+}
+
+// -------------- Buses --------------
+model BusCustomField {
+  id         Int                      @id @default(autoincrement())
+  tenantId   String                   @map("tenant_id") @db.Uuid
+  name       String                   @db.VarChar(100)
+  label      String                   @db.VarChar(150)
+  fieldType  FieldType                @map("field_type")
+  required   Boolean?
+  options    Json?
+  createdAt  DateTime                 @default(now()) @map("created_at")
+  updatedAt  DateTime                 @updatedAt @map("updated_at")
+
+  tenant     Tenant                   @relation(fields: [tenantId], references: [id])
+
+  values     BusCustomFieldValue[]
+
+  @@map("bus_custom_fields")
+}
+
+model BusCustomFieldValue {
+  id            BigInt            @id @default(autoincrement())
+  busId         String            @map("bus_id") @db.Uuid
+  customFieldId Int               @map("custom_field_id")
+  value         String?           @db.Text
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  bus           Bus               @relation(fields: [busId], references: [id])
+  customField   BusCustomField    @relation(fields: [customFieldId], references: [id])
+
+  @@map("bus_custom_field_values")
+}
+
+// -------------- Passengers --------------
+model PassengerCustomField {
+  id         Int                           @id @default(autoincrement())
+  tenantId   String                        @map("tenant_id") @db.Uuid
+  name       String                        @db.VarChar(100)
+  label      String                        @db.VarChar(150)
+  fieldType  FieldType                     @map("field_type")
+  required   Boolean?
+  options    Json?
+  createdAt  DateTime                      @default(now()) @map("created_at")
+  updatedAt  DateTime                      @updatedAt @map("updated_at")
+
+  tenant     Tenant                        @relation(fields: [tenantId], references: [id])
+
+  values     PassengerCustomFieldValue[]
+
+  @@map("passenger_custom_fields")
+}
+
+model PassengerCustomFieldValue {
+  id            BigInt                  @id @default(autoincrement())
+  passengerId   String                  @map("passenger_id") @db.Uuid
+  customFieldId Int                     @map("custom_field_id")
+  value         String?                 @db.Text
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+
+  passenger     Passenger               @relation(fields: [passengerId], references: [id])
+  customField   PassengerCustomField    @relation(fields: [customFieldId], references: [id])
+
+  @@map("passenger_custom_field_values")
+}
+
+// -------------- Trips --------------
+model TripCustomField {
+  id         Int                       @id @default(autoincrement())
+  tenantId   String                    @map("tenant_id") @db.Uuid
+  name       String                    @db.VarChar(100)
+  label      String                    @db.VarChar(150)
+  fieldType  FieldType                 @map("field_type")
+  required   Boolean?
+  options    Json?
+  createdAt  DateTime                  @default(now()) @map("created_at")
+  updatedAt  DateTime                  @updatedAt @map("updated_at")
+
+  tenant     Tenant                    @relation(fields: [tenantId], references: [id])
+
+  values     TripCustomFieldValue[]
+
+  @@map("trip_custom_fields")
+}
+
+model TripCustomFieldValue {
+  id            BigInt            @id @default(autoincrement())
+  tripId        String            @map("trip_id") @db.Uuid
+  customFieldId Int               @map("custom_field_id")
+  value         String?           @db.Text
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  trip          Trip              @relation(fields: [tripId], references: [id])
+  customField   TripCustomField   @relation(fields: [customFieldId], references: [id])
+
+  @@map("trip_custom_field_values")
+}
+
+// -------------- Bookings --------------
+model BookingCustomField {
+  id         Int                          @id @default(autoincrement())
+  tenantId   String                       @map("tenant_id") @db.Uuid
+  name       String                       @db.VarChar(100)
+  label      String                       @db.VarChar(150)
+  fieldType  FieldType                    @map("field_type")
+  required   Boolean?
+  options    Json?
+  createdAt  DateTime                     @default(now()) @map("created_at")
+  updatedAt  DateTime                     @updatedAt @map("updated_at")
+
+  tenant     Tenant                       @relation(fields: [tenantId], references: [id])
+
+  values     BookingCustomFieldValue[]
+
+  @@map("booking_custom_fields")
+}
+
+model BookingCustomFieldValue {
+  id            BigInt                @id @default(autoincrement())
+  bookingId     String                @map("booking_id") @db.Uuid
+  customFieldId Int                   @map("custom_field_id")
+  value         String?               @db.Text
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  booking       Booking               @relation(fields: [bookingId], references: [id])
+  customField   BookingCustomField    @relation(fields: [customFieldId], references: [id])
+
+  @@map("booking_custom_field_values")
+}
+
+// -------------- Routes --------------
+model RouteCustomField {
+  id         Int                        @id @default(autoincrement())
+  tenantId   String                     @map("tenant_id") @db.Uuid
+  name       String                     @db.VarChar(100)
+  label      String                     @db.VarChar(150)
+  fieldType  FieldType                  @map("field_type")
+  required   Boolean?
+  options    Json?
+  createdAt  DateTime                   @default(now()) @map("created_at")
+  updatedAt  DateTime                   @updatedAt @map("updated_at")
+
+  tenant     Tenant                     @relation(fields: [tenantId], references: [id])
+
+  values     RouteCustomFieldValue[]
+
+  @@map("route_custom_fields")
+}
+
+model RouteCustomFieldValue {
+  id            BigInt              @id @default(autoincrement())
+  routeId       String              @map("route_id") @db.Uuid
+  customFieldId Int                 @map("custom_field_id")
+  value         String?             @db.Text
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  route         Route               @relation(fields: [routeId], references: [id])
+  customField   RouteCustomField    @relation(fields: [customFieldId], references: [id])
+
+  @@map("route_custom_field_values")
+}
