@@ -3,36 +3,36 @@ import { OtpService } from "./otp.service";
 import { AuthErrorService } from "./authError.service";
 import { LogService } from "../../services/log.service";
 import { UserService } from "../users/users.services";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, UserStatus } from "@prisma/client";
+import { AppError } from "../../errors/AppError";
+import { BadRequestError } from "../../errors/BadRequestError";
 
 export class AuthService {
 	private userService = new UserService();
 	private tokenService = new TokenService();
 	private logService = new LogService();
-  private prisma = new PrismaClient();
-  private otpService = new OtpService()
+	private prisma = new PrismaClient();
+	private otpService = new OtpService();
 
-	async login(phone: string, password?: string, otpCode?: string) {
+
+	
+	async login(phone: string, password: string) {
 		const user = await this.userService.findByPhoneWithTenant(phone);
 		if (!user) AuthErrorService.throwInvalidCredentials();
 
-		if (user.status === "banned") AuthErrorService.throwAccountBanned();
+		if (user.status === UserStatus.banned)
+			AuthErrorService.throwAccountBanned();
 		if (user.status === "pending") AuthErrorService.throwAccountPending();
 
-		if (otpCode) {
-			this.otpService.verifyOtp(phone, otpCode);
-		} else if (password) {
-			if (!user.password) {
-				throw new Error("Password login not available for this account");
-			}
-			const valid = await this.userService.verifyPassword(
-				password,
-				user.password
-			);
-			if (!valid) AuthErrorService.throwInvalidCredentials();
-		} else {
-			throw new Error("Either password or OTP is required");
+		if (!user.password) {
+			throw new Error("Password login not available for this account");
 		}
+
+		const valid = await this.userService.verifyPassword(
+			password,
+			user.password
+		);
+		if (!valid) AuthErrorService.throwInvalidCredentials();
 
 		const { token, refreshToken } = await this.tokenService.createTokens(
 			user.id,
@@ -68,6 +68,7 @@ export class AuthService {
 	}
 
 	async forgetPassword(phone: string) {
+		console.log({ phone });
 		const user = await this.userService.findByPhone(phone);
 		if (!user) {
 			// Do not reveal user existence
@@ -76,17 +77,31 @@ export class AuthService {
 				message: "If the phone number exists, an OTP has been sent",
 			};
 		}
-		if (user.status !== "active") AuthErrorService.throwUserNotActive();
+		if (user.status !== UserStatus.active)
+			AuthErrorService.throwUserNotActive();
 
 		await this.otpService.sendOtp(phone, user.tenantId, user.id);
 
 		return { success: true, message: "OTP sent to your phone number" };
 	}
 
-	async resetPassword(phone: string, otpCode: string, newPassword: string) {
-		this.otpService.verifyOtp(phone, otpCode);
-
-		const user = await this.userService.findByPhone(phone);
+	async resetPassword(
+		token: string,
+		newPassword: string,
+		ConfirmnewPassword: string
+	) {
+		if (newPassword.trim() !== ConfirmnewPassword.trim()) {
+			throw new BadRequestError();
+		}
+		const user = await this.prisma.user.findFirst({
+			where: {
+				otpTokens: {
+					every: {
+						token: token,
+					},
+				},
+			},
+		});
 		if (!user) AuthErrorService.throwUserNotFound();
 
 		await this.userService.updatePassword(user.id, newPassword);
@@ -108,17 +123,54 @@ export class AuthService {
 
 	async logout(token: string) {
 		await this.tokenService.revokeToken(token);
-		// من الأفضل الحصول على بيانات التوكن قبل الحذف للتسجيل في اللوج
-		// أو تعديل revokeToken لتعيد بيانات التوكن المحذوفة
-		// هنا مجرد مثال
-		await this.logService.logAction({
-			tenantId: "", // ضع هنا بيانات المؤجر واليوزر إن حصلت عليها
-			userId: "",
-			action: "USER_LOGOUT",
-			entityType: "User",
-			entityId: "",
+		const existingUser = await this.prisma.user.findFirst({
+			where: {
+				accessTokens: {
+					every: {
+						token,
+					},
+				},
+			},
 		});
+		if (existingUser) {
+			await this.logService.logAction({
+				tenantId: existingUser?.tenantId,
+				userId: existingUser?.id,
+				action: "USER_LOGOUT",
+				entityType: "User",
+				entityId: "",
+			});
+		}
 
 		return { success: true, message: "Logged out successfully" };
+	}
+
+	async LoginUserForFirstTime(phone: string) {
+		const user = await this.userService.findByPhoneWithTenant(phone);
+		if (!user?.mustChangePassword) {
+			throw new AppError(
+				"you ar signed already if you forget your password go to forgetPassword",
+				400
+			);
+		}
+		this.otpService.sendOtp(phone, user.tenantId, user.id);
+		return {
+			success: true,
+			message: "otp sended successfully",
+		};
+	}
+
+	async VerifyOtpFromUser(phone: string, otp: string) {
+		this.otpService.verifyOtp(phone, otp);
+		const user = await this.userService.findByPhone(phone);
+		if (!user) {
+			throw new AppError("user not exist");
+		}
+		const { token } = await this.tokenService.createOtpTokens(user?.id);
+		return {
+			success: true,
+			message: "otp sended is Valid",
+			token,
+		};
 	}
 }

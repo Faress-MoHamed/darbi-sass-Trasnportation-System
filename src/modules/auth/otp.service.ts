@@ -23,7 +23,7 @@ export class OtpService {
 
 		this.otpStore[phone] = { code: otpCode, expiresAt, attempts: 0 };
 
-		await this.twilioService.sendSms(
+		await this.twilioService.sendWhatsApp(
 			phone,
 			`Your verification code is: ${otpCode}. Valid for ${this.OTP_EXPIRY_MINUTES} minutes.`
 		);

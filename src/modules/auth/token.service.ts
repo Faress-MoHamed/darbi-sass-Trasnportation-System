@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import * as crypto from "crypto";
+import { AppError } from "../../errors/AppError";
 
 const prisma = new PrismaClient();
 
@@ -37,6 +38,19 @@ export class TokenService {
     });
 
     return { token, refreshToken };
+  }
+  async createOtpTokens(userId: string) {
+    const token = this.generateToken();
+
+    await prisma.otpToken.create({
+      data: {
+        token,
+        userId,
+        expiresAt: this.getTokenExpiry(),
+      },
+    });
+
+    return { token };
   }
 
   async refreshToken(oldRefreshToken: string) {
@@ -123,6 +137,8 @@ export class TokenService {
     });
     if (tokenRecord) {
       await prisma.accessToken.delete({ where: { id: tokenRecord.id } });
+    } else {
+      throw new AppError("token is invalid",400)
     }
   }
 }

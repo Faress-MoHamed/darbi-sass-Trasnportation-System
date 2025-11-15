@@ -158,7 +158,21 @@ model AccessToken {
 
   @@map("access_tokens")
 }
+model OtpToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @db.VarChar(10)
+  expiresAt DateTime  @map("expires_at")
+  verified  Boolean   @default(false)
+  createdAt DateTime  @default(now()) @map("created_at")
+  usedAt    DateTime? @map("used_at")
 
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("otp_tokens")
+}
 // ============================================================================
 // Main Tables - Tenancy & Users
 // ============================================================================
@@ -255,6 +269,7 @@ model User {
   accessTokens            AccessToken[]
 
   @@map("users")
+  otpTokens OtpToken[]
 }
 
 model Role {
