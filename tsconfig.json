@@ -1,0 +1,15 @@
+{
+	"compilerOptions": {
+		"target": "ES2020", // مهم جداً، حدد إصدار ECMAScript 2015 أو أعلى
+		"module": "CommonJS",
+		"outDir": "dist", // مكان ملفات الجافاسكربت المترجمة
+		"rootDir": "src", // مجلد المصدر (تأكد تنشئه)
+		"esModuleInterop": true,
+		"moduleResolution": "node", // مهم للبحث عن modules بشكل صحيح
+		"strict": true,
+		"skipLibCheck": true, // لتفادي مشاكل أنواع المكتبات الخارجية
+		"forceConsistentCasingInFileNames": true,
+		"sourceMap": true
+	},
+	"include": ["src/**/*"]
+}
