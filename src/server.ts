@@ -1,8 +1,9 @@
-import createServer from './app';
+import { createApp } from "./app";
 
-
-createServer().then((url) => {
-    console.log(`🚀  Server ready at: ${url}`);
-}).catch((error) => {
-    console.error('Error starting server:', error);
-});
+createApp()
+	.then((url) => {
+		console.log(`🚀  Server ready at: ${url}`);
+	})
+	.catch((error) => {
+		console.error("Error starting server:", error);
+	});
