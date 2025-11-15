@@ -14,7 +14,9 @@
 	"author": "",
 	"main": "dist/server.js",
 	"scripts": {
-		"build": "prisma generate && tsc",
+		"start": "node dist/server.js",
+		"build": "tsc",
+		"dev": "nodemon --watch src --exec ts-node src/server.ts",
 		"update_db": "prisma migrate dev && prisma generate"
 	},
 	"dependencies": {
