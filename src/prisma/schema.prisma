@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://postgres:root@localhost:5432/darbi"
+  url      = env("DATABASE_URL")
 }
 
 // ============================================================================

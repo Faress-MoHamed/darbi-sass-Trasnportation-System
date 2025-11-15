@@ -8,6 +8,6 @@ export default defineConfig({
 	},
 	engine: "classic",
 	datasource: {
-		url: "postgresql://postgres:root@localhost:5432/darbi",
+		url: env("DATABASE_URL"),
 	},
 });
