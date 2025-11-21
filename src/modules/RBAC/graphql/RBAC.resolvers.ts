@@ -34,18 +34,14 @@ export const rbacResolvers = createResolvers({
 			}
 		),
 
-		roles: safeResolver(
-			async (_: any, { tenantId }: { tenantId: string }, context) => {
-				const roles = await new RBACService(context.prisma).getAllRoles(
-					tenantId
-				);
+		roles: safeResolver(async (_: any, __: any, context) => {
+			const roles = await new RBACService(context.prisma).getAllRoles();
 
-				return roles.map((role) => ({
-					...role,
-					permissions: role.rolePermissions.map((rp) => rp.permission),
-				}));
-			}
-		),
+			return roles.map((role) => ({
+				...role,
+				permissions: role.rolePermissions.map((rp) => rp.permission),
+			}));
+		}),
 
 		role: safeResolver(async (_: any, { id }: { id: number }, context) => {
 			const role = await new RBACService(context.prisma).getRoleById(id);
@@ -112,28 +108,21 @@ export const rbacResolvers = createResolvers({
 			)
 		),
 
-		createRole: requirePermission("roles.create")(
-			safeResolver(
-				async (
-					_: any,
-					{ tenantId, input }: { tenantId: string; input: CreateRoleDTO },
-					context
-				) => {
-					const data = CreateRoleSchema.parse(input);
+		createRole: safeResolver(
+			async (_: any, { input }: { input: CreateRoleDTO }, context) => {
+				const data = CreateRoleSchema.parse(input);
+				const role = await new RBACService(context.prisma).createRole(
+					context.tenant?.tenantId!,
+					data.name,
+					data.description || null,
+					data.permissionIds
+				);
 
-					const role = await new RBACService(context.prisma).createRole(
-						tenantId,
-						data.name,
-						data.description || null,
-						data.permissionIds
-					);
-
-					return {
-						...role,
-						permissions: role.rolePermissions.map((rp) => rp.permission),
-					};
-				}
-			)
+				return {
+					...role,
+					permissions: role.rolePermissions.map((rp) => rp.permission),
+				};
+			}
 		),
 
 		updateRole: requirePermission("roles.update")(

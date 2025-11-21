@@ -49,9 +49,8 @@ export class RBACService {
 
 	// ========== Role Methods ==========
 
-	async getAllRoles(tenantId: string) {
+	async getAllRoles() {
 		return this.prisma.role.findMany({
-			where: { tenantId },
 			include: {
 				rolePermissions: {
 					include: {

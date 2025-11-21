@@ -62,7 +62,7 @@ export const RBACTypeDef = gql`
 		permission(id: Int!): Permission
 
 		# Get all roles for tenant
-		roles(tenantId: String!): [RoleWithPermissions!]!
+		roles: [RoleWithPermissions!]!
 
 		# Get role by ID with permissions
 		role(id: Int!): RoleWithPermissions
@@ -81,7 +81,7 @@ export const RBACTypeDef = gql`
 		deletePermission(id: Int!): Boolean!
 
 		# Role Management
-		createRole(tenantId: String!, input: CreateRoleInput!): RoleWithPermissions!
+		createRole(input: CreateRoleInput!): RoleWithPermissions!
 		updateRole(id: Int!, input: UpdateRoleInput!): RoleWithPermissions!
 		deleteRole(id: Int!): Boolean!
 

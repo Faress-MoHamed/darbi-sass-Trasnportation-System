@@ -56,17 +56,14 @@ export const authTypeDefs = gql`
 		token: String
 	}
 
-	type AuthMutations {
+	type Mutation {
 		login(input: LoginInput!): LoginResponse
 		logout(token: String!): ActionResponse
 		refreshToken(input: RefreshTokenInput): RefreshTokenResponse
 		forgetPassword(input: ForgetPasswordInput): ActionResponse
-		verifyOtp(input: VerifyOtpInput): ActionResponse
+		VerifyOtp(input: VerifyOtpInput): ActionResponse
 		resetPassword(input: resetPasswordInput): ActionResponse
 		LoginUserForFirstTime(input: LoginUserForFirstTimeInput): ActionResponse
 	}
 
-	type Mutation {
-		Auth: AuthMutations
-	}
 `;

@@ -5,6 +5,7 @@ import cors from "cors";
 import { typeDefs, resolvers } from "./graphql";
 import { getTenantFromToken } from "./helpers/getTenantFromToken";
 import { createApolloServer } from "./graphql/createApolloServer";
+import { PrismaForDev } from "./lib/prisma";
 
 export default async function createServer() {
 	const app = express();
@@ -31,12 +32,14 @@ export default async function createServer() {
 				return {
 					token,
 					tenant,
+					userId: tenant?.userId,
+					prisma: PrismaForDev(tenant?.tenantId, tenant?.userId), // نمرّر tenant.id هنا
 				};
 			},
 		})
 	);
 
 	return new Promise<string>((resolve) => {
-		httpServer.listen(8080, () => resolve("http://localhost:8080"));
+		httpServer.listen(8080, () => resolve("http://localhost:8080/graphql"));
 	});
 }

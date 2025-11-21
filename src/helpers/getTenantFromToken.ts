@@ -1,17 +1,12 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from '../lib/prisma';
 
-export async function getTenantFromToken(token: string | undefined) {
-	if (!token) return null;
-	const prisma = new PrismaClient();
-	// find token in DB with user relation
-	const stored = await prisma.accessToken.findUnique({
-		where: { token },
-		include: { user: true },
-	});
+export async function getTenantFromToken(token?: string) {
+  if (!token) return null;
 
-	if (!stored || !stored.user) return null;
+  const stored = await prisma.accessToken.findUnique({
+    where: { token },
+    include: { user: true },
+  });
 
-	return {
-		tenantId: stored.user.tenantId,
-	};
+  return stored;
 }
