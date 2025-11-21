@@ -14,8 +14,6 @@ export class AuthService {
 	private prisma = new PrismaClient();
 	private otpService = new OtpService();
 
-
-	
 	async login(phone: string, password: string) {
 		const user = await this.userService.findByPhoneWithTenant(phone);
 		if (!user) AuthErrorService.throwInvalidCredentials();
@@ -38,6 +36,7 @@ export class AuthService {
 			user.id,
 			user.tenantId
 		);
+		console.log({ token, refreshToken });
 
 		await this.userService.updateLastLogin(user.id);
 
