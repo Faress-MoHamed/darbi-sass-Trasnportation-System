@@ -17,7 +17,9 @@
 		"start": "node dist/server.js",
 		"build": "tsc",
 		"dev": "nodemon --watch src --exec ts-node src/server.ts",
-		"update_db": "prisma migrate dev && prisma generate"
+		"update_db": "prisma migrate dev && prisma generate",
+		"seed:permissions": "node --loader ts-node src/prisma/seeders/permissions.seeder.ts",
+		"seed:init": "node --loader ts-node src/prisma/seeders/superAdmins.seeder.ts"
 	},
 	"dependencies": {
 		"@apollo/server": "^5.1.0",
