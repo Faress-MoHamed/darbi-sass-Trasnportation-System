@@ -1,0 +1,84 @@
+model Trip {
+  id                String                 @id @default(uuid()) @db.Uuid
+  tenantId          String                 @map("tenant_id") @db.Uuid
+  routeId           String?                @map("route_id") @db.Uuid
+  busId             String?                @map("bus_id") @db.Uuid
+  driverId          String?                @map("driver_id") @db.Uuid
+  departureTime     DateTime?              @map("departure_time")
+  arrivalTime       DateTime?              @map("arrival_time")
+  status            TripStatus
+  availableSeats    Int?                   @map("available_seats")
+  notes             String?                @db.Text
+
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id])
+  route             Route?                 @relation(fields: [routeId], references: [id])
+  bus               Bus?                   @relation(fields: [busId], references: [id])
+  driver            Driver?                @relation(fields: [driverId], references: [id])
+
+  tripStations      TripStation[]
+  tripLogs          TripLog[]
+  bookings          Booking[]
+  emergencyAlerts   EmergencyAlert[]
+  tripPerformance   TripPerformance[]
+  customFieldValues TripCustomFieldValue[]
+
+  @@map("trips")
+}
+
+model TripStation {
+  tripId               String    @map("trip_id") @db.Uuid
+  stationId            String    @map("station_id") @db.Uuid
+  scheduledArrivalTime DateTime? @map("scheduled_arrival_time")
+  actualArrivalTime    DateTime? @map("actual_arrival_time")
+  departureTime        DateTime? @map("departure_time")
+
+  trip                 Trip      @relation(fields: [tripId], references: [id])
+  station              Station   @relation(fields: [stationId], references: [id])
+
+  @@id([tripId, stationId])
+  @@map("trip_stations")
+}
+
+model TripLog {
+  id              BigInt   @id @default(autoincrement())
+  tripId          String   @map("trip_id") @db.Uuid
+  busLocationLat  Decimal? @map("bus_location_lat") @db.Decimal(10, 6)
+  busLocationLng  Decimal? @map("bus_location_lng") @db.Decimal(10, 6)
+  speed           Decimal? @db.Decimal(5, 2)
+  passengersCount Int?     @map("passengers_count")
+  timestamp       DateTime @default(now())
+
+  trip            Trip     @relation(fields: [tripId], references: [id])
+
+  @@map("trip_logs")
+}
+model TripCustomField {
+  id         Int                       @id @default(autoincrement())
+  tenantId   String                    @map("tenant_id") @db.Uuid
+  name       String                    @db.VarChar(100)
+  label      String                    @db.VarChar(150)
+  fieldType  FieldType                 @map("field_type")
+  required   Boolean?
+  options    Json?
+  createdAt  DateTime                  @default(now()) @map("created_at")
+  updatedAt  DateTime                  @updatedAt @map("updated_at")
+
+  tenant     Tenant                    @relation(fields: [tenantId], references: [id])
+
+  values     TripCustomFieldValue[]
+
+  @@map("trip_custom_fields")
+}
+
+model TripCustomFieldValue {
+  id            BigInt            @id @default(autoincrement())
+  tripId        String            @map("trip_id") @db.Uuid
+  customFieldId Int               @map("custom_field_id")
+  value         String?           @db.Text
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  trip          Trip              @relation(fields: [tripId], references: [id])
+  customField   TripCustomField   @relation(fields: [customFieldId], references: [id])
+
+  @@map("trip_custom_field_values")
+}

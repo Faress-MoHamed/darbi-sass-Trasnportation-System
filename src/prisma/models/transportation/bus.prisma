@@ -1,0 +1,50 @@
+model Bus {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  tenantId            String                 @map("tenant_id") @db.Uuid
+  busNumber           String                 @map("bus_number") @db.VarChar(50)
+  capacity            Int?
+  type                String?                @db.VarChar(50)
+  status              BusStatus
+  gpsTrackerId        String?                @map("gps_tracker_id") @db.VarChar(100)
+  maintenanceStatus   String?                @map("maintenance_status") @db.VarChar(100)
+
+  tenant              Tenant                 @relation(fields: [tenantId], references: [id])
+
+  trips               Trip[]
+  gpsData             GpsData[]
+  busStatusLogs       BusStatusLog[]
+  customFieldValues   BusCustomFieldValue[]
+
+  @@map("buses")
+}
+
+model BusCustomField {
+  id         Int                      @id @default(autoincrement())
+  tenantId   String                   @map("tenant_id") @db.Uuid
+  name       String                   @db.VarChar(100)
+  label      String                   @db.VarChar(150)
+  fieldType  FieldType                @map("field_type")
+  required   Boolean?
+  options    Json?
+  createdAt  DateTime                 @default(now()) @map("created_at")
+  updatedAt  DateTime                 @updatedAt @map("updated_at")
+
+  tenant     Tenant                   @relation(fields: [tenantId], references: [id])
+
+  values     BusCustomFieldValue[]
+
+  @@map("bus_custom_fields")
+}
+
+model BusCustomFieldValue {
+  id            BigInt            @id @default(autoincrement())
+  busId         String            @map("bus_id") @db.Uuid
+  customFieldId Int               @map("custom_field_id")
+  value         String?           @db.Text
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  bus           Bus               @relation(fields: [busId], references: [id])
+  customField   BusCustomField    @relation(fields: [customFieldId], references: [id])
+
+  @@map("bus_custom_field_values")
+}

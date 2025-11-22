@@ -1,0 +1,40 @@
+// ============================================================================
+// Maps & Tracking
+// ============================================================================
+
+model GpsData {
+  id        BigInt   @id @default(autoincrement())
+  busId     String   @map("bus_id") @db.Uuid
+  latitude  Decimal? @db.Decimal(10, 6)
+  longitude Decimal? @db.Decimal(10, 6)
+  speed     Decimal? @db.Decimal(5, 2)
+  timestamp DateTime @default(now())
+
+  bus       Bus      @relation(fields: [busId], references: [id])
+
+  @@map("gps_data")
+}
+
+model BusStatusLog {
+  id        BigInt             @id @default(autoincrement())
+  busId     String             @map("bus_id") @db.Uuid
+  status    BusOperationStatus
+  timestamp DateTime           @default(now())
+
+  bus       Bus                @relation(fields: [busId], references: [id])
+
+  @@map("bus_status_logs")
+}
+
+model MapLayer {
+  id        Int          @id @default(autoincrement())
+  tenantId  String       @map("tenant_id") @db.Uuid
+  type      MapLayerType
+  data      Json?
+  visible   Boolean?
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+
+  @@map("map_layers")
+}

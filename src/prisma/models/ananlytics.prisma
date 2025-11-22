@@ -1,0 +1,29 @@
+// ============================================================================
+// Analytics & Statistics
+// ============================================================================
+
+model AnalyticsKpi {
+  id         BigInt   @id @default(autoincrement())
+  tenantId   String   @map("tenant_id") @db.Uuid
+  metricName String?  @map("metric_name") @db.VarChar(100)
+  value      Decimal? @db.Decimal(12, 2)
+  timestamp  DateTime @default(now())
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("analytics_kpis")
+}
+
+model TripPerformance {
+  id                 BigInt   @id @default(autoincrement())
+  tripId             String   @map("trip_id") @db.Uuid
+  delaysCount        Int?     @map("delays_count")
+  cancellationsCount Int?     @map("cancellations_count")
+  avgOccupancy       Decimal? @map("avg_occupancy") @db.Decimal(5, 2)
+  rating             Decimal? @db.Decimal(2, 1)
+  recordedAt         DateTime @map("recorded_at")
+
+  trip               Trip     @relation(fields: [tripId], references: [id])
+
+  @@map("trip_performance")
+}

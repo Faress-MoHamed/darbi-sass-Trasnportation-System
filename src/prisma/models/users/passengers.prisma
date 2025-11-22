@@ -1,0 +1,49 @@
+// ============================================================================
+// Passengers & Bookings
+// ============================================================================
+
+model Passenger {
+  id                     String                      @id @default(uuid()) @db.Uuid
+  tenantId               String                      @map("tenant_id") @db.Uuid
+  userId                 String                      @unique @map("user_id") @db.Uuid
+  subscriptionStatus     SubscriptionStatus?         @map("subscription_status")
+  pointsBalance          Int?                        @map("points_balance")
+
+  tenant                 Tenant                      @relation(fields: [tenantId], references: [id])
+  user                   User                        @relation(fields: [userId], references: [id])
+
+  customFieldValues      PassengerCustomFieldValue[]
+
+  @@map("passengers")
+}
+
+model PassengerCustomField {
+  id         Int                           @id @default(autoincrement())
+  tenantId   String                        @map("tenant_id") @db.Uuid
+  name       String                        @db.VarChar(100)
+  label      String                        @db.VarChar(150)
+  fieldType  FieldType                     @map("field_type")
+  required   Boolean?
+  options    Json?
+  createdAt  DateTime                      @default(now()) @map("created_at")
+  updatedAt  DateTime                      @updatedAt @map("updated_at")
+
+  tenant     Tenant                        @relation(fields: [tenantId], references: [id])
+
+  values     PassengerCustomFieldValue[]
+
+  @@map("passenger_custom_fields")
+}
+
+model PassengerCustomFieldValue {
+  id            BigInt                  @id @default(autoincrement())
+  passengerId   String                  @map("passenger_id") @db.Uuid
+  customFieldId Int                     @map("custom_field_id")
+  value         String?                 @db.Text
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+
+  passenger     Passenger               @relation(fields: [passengerId], references: [id])
+  customField   PassengerCustomField    @relation(fields: [customFieldId], references: [id])
+
+  @@map("passenger_custom_field_values")
+}

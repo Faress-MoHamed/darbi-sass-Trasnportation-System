@@ -1,0 +1,64 @@
+// ============================================================================
+// Main Tables - Tenancy & Users
+// ============================================================================
+
+model Tenant {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  name                    String                   @db.VarChar(150)
+  planType                PlanType                 @map("plan_type")
+  status                  TenantStatus
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+
+  tenantSettings          TenantSetting[]
+  users                   User[]
+  roles                   Role[]
+  logs                    Log[]
+  drivers                 Driver[]
+  buses                   Bus[]
+  routes                  Route[]
+  stations                Station[]
+  trips                   Trip[]
+  passengers              Passenger[]
+  bookings                Booking[]
+  subscriptions           Subscription[]
+  tickets                 Ticket[]
+  loyaltyPoints           LoyaltyPoint[]
+  payments                Payment[]
+  paymentMethods          PaymentMethod[]
+  revenues                Revenue[]
+  expenses                Expense[]
+  financialReports        FinancialReport[]
+  notifications           Notification[]
+  supportTickets          SupportTicket[]
+  emergencyAlerts         EmergencyAlert[]
+  analyticsKpis           AnalyticsKpi[]
+  mapLayers               MapLayer[]
+  settings                Setting[]
+  attachments             Attachment[]
+  userCustomFields        UserCustomField[]
+  driverCustomFields      DriverCustomField[]
+  busCustomFields         BusCustomField[]
+  passengerCustomFields   PassengerCustomField[]
+  tripCustomFields        TripCustomField[]
+  bookingCustomFields     BookingCustomField[]
+  routeCustomFields       RouteCustomField[]
+  accessTokens            AccessToken[]            @relation("tenant_to_accessToken")
+
+  @@map("tenants")
+}
+
+model TenantSetting {
+  id        Int      @id @default(autoincrement())
+  tenantId  String   @map("tenant_id") @db.Uuid
+  key       String   @db.VarChar(100)
+  value     String?  @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("tenant_settings")
+}
+
+
+
