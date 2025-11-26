@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { getAllPermissions } from '../../helpers/permissionhelper';
+import { prisma } from '../../lib/prisma';
 
-const prisma = new PrismaClient();
 
 async function seedPermissions() {
   console.log('Starting permissions seeding...');

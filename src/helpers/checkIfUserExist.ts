@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import { AppError } from "../errors/AppError";
+import { prisma } from "../lib/prisma";
 
 export const CheckIfUserExist = async (userId: any) => {
-	const prisma = new PrismaClient();
 	const user = await prisma.user.findFirst({
 		where: { id: userId },
 	});

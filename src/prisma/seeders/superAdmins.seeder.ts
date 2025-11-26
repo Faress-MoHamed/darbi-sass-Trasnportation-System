@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import * as bcrypt from "bcrypt";
+import { prisma } from "../../lib/prisma";
 
-const prisma = new PrismaClient();
 const seederInitializeProject = async () => {
 	const tenant = await prisma.tenant.upsert({
 		where: { id: "00000000-0000-0000-0000-000000000001" },

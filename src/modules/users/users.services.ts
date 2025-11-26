@@ -8,10 +8,11 @@ import * as bcrypt from "bcrypt";
 import { AuthErrorService } from "../auth/authError.service";
 import { createUserSchema } from "./validations/create-user.validation";
 import { AppError } from "../../errors/AppError";
+import { prisma } from "../../lib/prisma";
 
 export class UserService {
 	private readonly SALT_ROUNDS = 12;
-	private prisma = new PrismaClient();
+	private prisma = prisma;
 	private User = this.prisma.user;
 	private Tenant = this.prisma.tenant;
 	private Passenger = this.prisma.passenger;
