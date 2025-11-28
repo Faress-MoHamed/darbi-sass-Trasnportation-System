@@ -68,7 +68,8 @@ export class TenantService {
 					tenantId: NewTenant.id,
 					role: "admin",
 				},
-				tx.user
+				tx.user,
+				tx.tenant
 			);
 
 			return NewTenant;
