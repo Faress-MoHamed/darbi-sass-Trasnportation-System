@@ -19,7 +19,7 @@ export const authTypeDefs = gql`
 	input ForgetPasswordInput {
 		phone: String!
 	}
-	input resetPasswordInput {
+	input ResetPasswordInput {
 		token: String!
 		newPassword: String!
 		ConfirmnewPassword: String!
@@ -55,15 +55,16 @@ export const authTypeDefs = gql`
 		refreshToken: String
 		token: String
 	}
-
-	type Mutation {
+	type AuthMutations {
 		login(input: LoginInput!): LoginResponse
 		logout(token: String!): ActionResponse
 		refreshToken(input: RefreshTokenInput): RefreshTokenResponse
 		forgetPassword(input: ForgetPasswordInput): ActionResponse
-		VerifyOtp(input: VerifyOtpInput): ActionResponse
-		resetPassword(input: resetPasswordInput): ActionResponse
-		LoginUserForFirstTime(input: LoginUserForFirstTimeInput): ActionResponse
+		verifyOtp(input: VerifyOtpInput): ActionResponse
+		resetPassword(input: ResetPasswordInput): ActionResponse
+		loginUserForFirstTime(input: LoginUserForFirstTimeInput): ActionResponse
 	}
-
+	type Mutation {
+		auth: AuthMutations!
+	}
 `;

@@ -384,7 +384,6 @@ model Route {
   distanceKm        Decimal?                @map("distance_km") @db.Decimal(6, 2)
   estimatedTime     DateTime?               @map("estimated_time") @db.Time
   active            Boolean?
-
   tenant            Tenant                  @relation(fields: [tenantId], references: [id])
 
   stations          Station[]

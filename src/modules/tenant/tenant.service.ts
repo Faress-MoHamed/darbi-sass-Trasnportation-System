@@ -67,6 +67,7 @@ export class TenantService {
 					...Payload.user,
 					tenantId: NewTenant.id,
 					role: "admin",
+					status: "pending",
 				},
 				tx.user
 			);

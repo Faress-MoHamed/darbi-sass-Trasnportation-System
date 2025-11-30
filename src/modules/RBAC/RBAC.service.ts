@@ -3,7 +3,10 @@ import { CheckIfUserExist } from "../../helpers/checkIfUserExist";
 
 export class RBACService {
 	prisma: PrismaClient;
-	constructor(prisma: PrismaClient) {
+	constructor(prisma?: PrismaClient) {
+		if (!prisma) {
+			throw new Error("Prisma client is required");
+		}
 		this.prisma = prisma;
 	}
 	// ========== Permission Methods ==========
