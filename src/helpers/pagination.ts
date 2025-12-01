@@ -30,25 +30,27 @@ export async function paginate<T>(
 	const skip = (page - 1) * limit;
 
 	const where = args?.where ?? {};
-	const orderBy = args?.orderBy ?? { createdAt: "desc" };
+	try {
+		const [data, total] = await Promise.all([
+			model.findMany({
+				where,
+				skip,
+				take: limit,
+			}),
+			model.count({ where }),
+		]);
 
-	const [data, total] = await Promise.all([
-		model.findMany({
-			where,
-			skip,
-			take: limit,
-			orderBy,
-		}),
-		model.count({ where }),
-	]);
-
-	return {
-		data: data || [],
-		meta: {
-			page,
-			limit,
-			total,
-			totalPages: Math.ceil(total / limit),
-		},
-	};
+		return {
+			data: data || [],
+			meta: {
+				page,
+				limit,
+				total,
+				totalPages: Math.ceil(total / limit),
+			},
+		};
+	} catch (error) {
+		console.error("Pagination error:", error);
+		throw error;
+	}
 }

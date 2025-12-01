@@ -70,8 +70,10 @@ export const rbacResolvers = createResolvers({
 			) => new RBACService(context.prisma).hasPermission(userId, permissionKey)
 		),
 	},
-
 	Mutation: {
+		rbac: () => ({}), // Returns empty object for namespace
+	},
+	PermessionMutations: {
 		createPermission: requirePermission("permissions.manage")(
 			safeResolver(
 				async (_: any, { input }: { input: CreatePermissionDTO }, context) => {

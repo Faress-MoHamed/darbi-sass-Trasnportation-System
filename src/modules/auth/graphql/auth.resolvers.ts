@@ -12,68 +12,60 @@ import {
 
 const authModule = new AuthService();
 
-export const authReolver = createResolvers({
+export const authResolver = createResolvers({
 	Mutation: {
-		login: async (_parent, _args) => {
-			const result = LoginDto.safeParse(_args.input);
+		auth: () => ({}), // Returns empty object for namespace
+	},
+	AuthMutations: {
+		login: async (_parent: any, args) => {
+			const result = LoginDto.safeParse(args.input);
 			if (!result.success) {
 				throw new ValidationError(result.error);
 			}
-
 			return authModule.login(result.data.phone, result.data.password);
 		},
 
-		logout: async (_parent, _args, context) => {
+		logout: async (_parent: any, _args: any, context) => {
 			return authModule.logout(context.token!);
 		},
 
-		refreshToken: async (_parent, args) => {
+		refreshToken: async (_parent: any, args) => {
 			const result = RefreshTokenDto.safeParse(args.input);
-
 			if (!result.success) {
 				throw new ValidationError(result.error);
 			}
-
 			return authModule.refreshToken(result.data.refreshToken);
 		},
 
-		forgetPassword: async (_parent, args) => {
+		forgetPassword: async (_parent: any, args) => {
 			const result = ForgetPasswordDto.safeParse(args.input);
-
 			if (!result.success) {
 				throw new ValidationError(result.error);
 			}
-
 			return authModule.forgetPassword(result.data.phone);
 		},
 
-		LoginUserForFirstTime: async (_parent, args) => {
+		loginUserForFirstTime: async (_parent: any, args) => {
 			const result = LoginUserForFirstTimeDto.safeParse(args.input);
-
 			if (!result.success) {
 				throw new ValidationError(result.error);
 			}
-
 			return authModule.LoginUserForFirstTime(result.data.phone);
 		},
 
-		VerifyOtp: async (_parent, args) => {
+		verifyOtp: async (_parent: any, args) => {
 			const result = VerifyOtpDto.safeParse(args.input);
-
 			if (!result.success) {
 				throw new ValidationError(result.error);
 			}
-
 			return authModule.VerifyOtpFromUser(result.data.phone, result.data.otp);
 		},
 
-		resetPassword: async (_parent, args) => {
+		resetPassword: async (_parent: any, args) => {
 			const result = ResetPasswordDto.safeParse(args.input);
-
 			if (!result.success) {
 				throw new ValidationError(result.error);
 			}
-
 			return authModule.resetPassword(
 				result.data.token,
 				result.data.newPassword,

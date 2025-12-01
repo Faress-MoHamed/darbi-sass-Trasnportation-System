@@ -18,27 +18,3 @@ export function safeResolver(resolverFn: ResolverFn) {
 	};
 }
 
-export function wrapResolversWithSafeResolver(obj: ResolversMap) {
-	const wrapped: ResolversMap = {};
-
-	for (const key in obj) {
-		wrapped[key] = {};
-
-		for (const field in obj[key]) {
-			const value = obj[key][field];
-
-			// If field contains nested resolvers (ex: Mutation.Auth)
-			if (typeof value === "object" && !("length" in value)) {
-				wrapped[key][field] = {};
-
-				for (const innerField in value) {
-					wrapped[key][field][innerField] = safeResolver(value[innerField]);
-				}
-			} else {
-				wrapped[key][field] = safeResolver(value);
-			}
-		}
-	}
-
-	return wrapped;
-}

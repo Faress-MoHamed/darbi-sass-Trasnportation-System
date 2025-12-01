@@ -74,7 +74,7 @@ export const RBACTypeDef = gql`
 		hasPermission(userId: String!, permissionKey: String!): Boolean!
 	}
 
-	type Mutation {
+	type PermessionMutations {
 		# Permission Management
 		createPermission(input: CreatePermissionInput!): Permission!
 		updatePermission(id: Int!, input: CreatePermissionInput!): Permission!
@@ -96,5 +96,10 @@ export const RBACTypeDef = gql`
 
 		# Remove role from user
 		removeRoleFromUser(userId: String!, roleId: Int!): Boolean!
+	}
+
+
+	type Mutation {
+		rbac: PermessionMutations!
 	}
 `;

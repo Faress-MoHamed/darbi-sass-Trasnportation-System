@@ -380,14 +380,13 @@ model Bus {
 }
 
 model Route {
-  id            String    @id @default(uuid()) @db.Uuid
-  tenantId      String    @map("tenant_id") @db.Uuid
-  name          String    @db.VarChar(150)
-  distanceKm    Decimal?  @map("distance_km") @db.Decimal(6, 2)
-  estimatedTime DateTime? @map("estimated_time") @db.Time
-  active        Boolean?
-
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  id                String                  @id @default(uuid()) @db.Uuid
+  tenantId          String                  @map("tenant_id") @db.Uuid
+  name              String                  @db.VarChar(150)
+  distanceKm        Decimal?                @map("distance_km") @db.Decimal(6, 2)
+  estimatedTime     DateTime?               @map("estimated_time") @db.Time
+  active            Boolean?
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id])
 
   stations          Station[]
   trips             Trip[]
