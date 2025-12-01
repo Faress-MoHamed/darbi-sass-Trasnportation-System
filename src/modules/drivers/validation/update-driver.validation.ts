@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { licenseSchema } from "./license.validation";
 
-/**
- * Update driver input validation schema
- * All fields are optional for partial updates
- */
+// Update driver input validation schema
 export const updateDriverSchema = z.object({
     licenseNumber: licenseSchema.optional(),
     vehicleType: z
@@ -22,11 +19,7 @@ export const updateDriverSchema = z.object({
 
 export type UpdateDriverInput = z.infer<typeof updateDriverSchema>;
 
-/**
- * Validates update driver input data
- * @param data - Driver data to validate
- * @returns Validation result
- */
+// Validates update driver input data
 export function validateUpdateDriver(data: unknown) {
     return updateDriverSchema.safeParse(data);
 }

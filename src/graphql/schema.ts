@@ -6,4 +6,5 @@ import { mergeTypeDefs } from "@graphql-tools/merge";
 
 const typeDefs = mergeTypeDefs([tenantTypeDefs, authTypeDefs, RBACTypeDef, driverTypeDefs]);
 
+
 export default typeDefs;

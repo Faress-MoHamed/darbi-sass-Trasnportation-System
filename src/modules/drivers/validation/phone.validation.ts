@@ -1,10 +1,6 @@
 import { z } from "zod";
 
-/**
- * Phone number validation schema
- * Validates international phone format with country code
- * Length: 10-15 digits
- */
+// Phone number validation schema
 export const phoneSchema = z
     .string()
     .min(10, "Phone number must be at least 10 digits")
@@ -14,11 +10,7 @@ export const phoneSchema = z
         "Invalid phone format. Use international format (e.g., +201234567890)"
     );
 
-/**
- * Validates phone number format
- * @param phone - Phone number to validate
- * @returns Validation result
- */
+// Validates phone number format
 export function validatePhoneFormat(phone: string) {
     return phoneSchema.safeParse(phone);
 }

@@ -1,10 +1,6 @@
 import { z } from "zod";
 
-/**
- * Driver license number validation schema
- * Validates alphanumeric format with optional dashes
- * Length: 5-50 characters
- */
+// Driver license number validation schema
 export const licenseSchema = z
     .string()
     .min(5, "License number must be at least 5 characters")
@@ -14,11 +10,7 @@ export const licenseSchema = z
         "License number must contain only letters, numbers, and dashes"
     );
 
-/**
- * Validates license number format
- * @param licenseNumber - License number to validate
- * @returns Validation result
- */
+// Validates license number format
 export function validateLicenseFormat(licenseNumber: string) {
     return licenseSchema.safeParse(licenseNumber);
 }
