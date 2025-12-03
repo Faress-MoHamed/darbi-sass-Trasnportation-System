@@ -46,9 +46,12 @@ export class UserService {
 			| "mustChangePassword"
 			| "lastLogin"
 		>,
-		Model?: any
+		Model?: any,
+		TenantModel?: any
 	) {
 		const PrismaModel = Model ? Model : this.User;
+		const TenantPrismaModel = TenantModel ? TenantModel : this.Tenant;
+
 		const { data: CleanedPayload, error } = createUserSchema.safeParse(data);
 		if (error) {
 			throw new AppError(error.message, 400);
@@ -66,7 +69,7 @@ export class UserService {
 			throw new Error("User with this phone or email already exists");
 		}
 
-		const tenant = await this.Tenant.findUnique({
+		const tenant = await TenantPrismaModel.findUnique({
 			where: { id: CleanedPayload.tenantId },
 		});
 

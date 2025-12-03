@@ -69,7 +69,8 @@ export class TenantService {
 					role: "admin",
 					status: "pending",
 				},
-				tx.user
+				tx.user,
+				tx.tenant
 			);
 
 			return NewTenant;
