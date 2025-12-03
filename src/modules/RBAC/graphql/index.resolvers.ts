@@ -1,4 +1,4 @@
-import { RBACService } from "../RBAC.service";
+import { RBACService } from "../index.service";
 import { createResolvers } from "../../../helpers/createResolver";
 
 import {

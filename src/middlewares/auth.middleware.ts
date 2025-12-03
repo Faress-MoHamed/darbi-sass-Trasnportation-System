@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { RBACService } from "../modules/RBAC/RBAC.service";
+import { RBACService } from "../modules/RBAC/index.service";
 import type { ResolverFn } from "../types/ResolverTypes";
 import { AppError } from "../errors/AppError";
 import type { PermissionKey } from "../helpers/permissionhelper";

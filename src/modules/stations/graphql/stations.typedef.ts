@@ -15,6 +15,7 @@ export const stationTypeDef = gql`
 		id: ID
 		tenantId: ID
 		name: String
+		routeId: ID
 		latitude: Float
 		longitude: Float
 		sequence: Int
@@ -66,9 +67,14 @@ export const stationTypeDef = gql`
 	# Types related to Trip, TripStation and their queries
 	# ============================
 
+	enum TripStatus {
+		active
+		completed
+		cancelled
+	}
 	type Trip {
 		id: ID
-		status: String
+		status: TripStatus
 		departureTime: DateTime
 		arrivalTime: DateTime
 	}

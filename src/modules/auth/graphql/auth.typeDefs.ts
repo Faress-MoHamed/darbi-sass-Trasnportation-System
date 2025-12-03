@@ -24,20 +24,7 @@ export const authTypeDefs = gql`
 		newPassword: String!
 		ConfirmnewPassword: String!
 	}
-	enum UserRole {
-		admin
-		supervisor
-		driver
-		passenger
-	}
 
-	type User {
-		id: String
-		name: String
-		email: String
-		phone: String
-		role: UserRole
-	}
 
 	type LoginResponse {
 		token: String

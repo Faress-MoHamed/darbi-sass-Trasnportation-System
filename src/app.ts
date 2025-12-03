@@ -30,7 +30,7 @@ export default async function createServer() {
 				}
 
 				const tenant = await getTenantFromToken(token);
-
+				console.log({ tenant });
 				return {
 					token,
 					tenant,
