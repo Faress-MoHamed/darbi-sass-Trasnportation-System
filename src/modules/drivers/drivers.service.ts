@@ -43,17 +43,25 @@ export class DriverService {
     }
 
     // Creates a new driver along with a user account
-    async createDriver(data: CreateDriverInput): Promise<Driver> {
+    async createDriver(data: CreateDriverInput, contextTenantId?: string): Promise<Driver> {
         // Validate input
         const { data: validatedData, error } = createDriverSchema.safeParse(data);
         if (error) {
             throw new AppError(error.message, 400);
         }
 
+        // Ensure we have tenantId from context
+        if (!contextTenantId) {
+            throw new AppError(
+                "Authentication required. Please login to create a driver.",
+                401
+            );
+        }
+
         // Validate license uniqueness
         await this.validateLicenseUniqueness(
             validatedData.licenseNumber,
-            validatedData.tenantId
+            contextTenantId
         );
 
         // Check if user with this phone already exists
@@ -72,7 +80,7 @@ export class DriverService {
 
         // Validate tenant exists and is active
         const tenant = await this.prisma.tenant.findUnique({
-            where: { id: validatedData.tenantId },
+            where: { id: contextTenantId },
         });
 
         if (!tenant) {
@@ -93,7 +101,7 @@ export class DriverService {
             // Create user with driver role
             const user = await tx.user.create({
                 data: {
-                    tenantId: validatedData.tenantId,
+                    tenantId: contextTenantId,
                     phone: validatedData.phone,
                     email: validatedData.email ?? null,
                     name: validatedData.name,
@@ -108,7 +116,7 @@ export class DriverService {
             const driver = await tx.driver.create({
                 data: {
                     userId: user.id,
-                    tenantId: validatedData.tenantId,
+                    tenantId: contextTenantId,
                     licenseNumber: validatedData.licenseNumber,
                     vehicleType: validatedData.vehicleType,
                     status: validatedData.status || DriverStatus.offline,

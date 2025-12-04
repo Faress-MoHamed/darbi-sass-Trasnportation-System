@@ -24,7 +24,6 @@ export const driverTypeDefs = gql`
 
 	# Input for creating a driver
 	input CreateDriverInput {
-		tenantId: ID!
 		name: String!
 		phone: String!
 		password: String!

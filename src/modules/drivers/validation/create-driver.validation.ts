@@ -3,9 +3,6 @@ import { licenseSchema } from "./license.validation";
 
 // Create driver input validation schema
 export const createDriverSchema = z.object({
-    // Tenant information
-    tenantId: z.string().uuid("Invalid tenant ID format"),
-
     // User data
     name: z.string().min(1, "Name is required").max(150, "Name must not exceed 150 characters"),
     phone: z.string().min(1, "Phone is required").max(20, "Phone must not exceed 20 characters"),
