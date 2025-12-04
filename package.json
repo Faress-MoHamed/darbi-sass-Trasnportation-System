@@ -17,17 +17,25 @@
 		"start": "node dist/server.js",
 		"build": "tsc",
 		"dev": "nodemon --watch src --exec ts-node src/server.ts",
-		"update_db": "prisma migrate dev && prisma generate"
+		"update_db": "prisma migrate dev && prisma generate",
+		"seed:permissions": "node --loader ts-node src/prisma/seeders/permissions.seeder.ts",
+		"seed:init": "node --loader ts-node src/prisma/seeders/superAdmins.seeder.ts"
 	},
 	"dependencies": {
 		"@apollo/server": "^5.1.0",
 		"@as-integrations/express5": "^1.1.2",
-		"@prisma/client": "^6.19.0",
+		"@graphql-eslint/eslint-plugin": "^4.4.0",
+		"@prisma/adapter-pg": "^7.0.1",
+		"@prisma/adapter-ppg": "^7.0.1",
+		"@prisma/client": "^7.0.1",
+		"@turf/turf": "^7.3.1",
 		"bcrypt": "^6.0.0",
 		"cors": "^2.8.5",
+		"dotenv": "^17.2.3",
 		"express": "^5.1.0",
 		"graphql": "^16.12.0",
 		"graphql-tag": "^2.12.6",
+		"graphql-tools": "^9.0.24",
 		"nodemon": "^3.1.11",
 		"serverless-http": "^4.0.0",
 		"twilio": "^5.10.5",
@@ -38,7 +46,7 @@
 		"@types/cors": "^2.8.19",
 		"@types/express": "^5.0.5",
 		"@types/node": "^24.10.1",
-		"prisma": "^6.19.0",
+		"prisma": "^7.0.1",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.9.3"
 	}

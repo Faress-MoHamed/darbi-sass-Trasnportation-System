@@ -8,17 +8,25 @@ import {
 import { AppError } from "../../errors/AppError";
 import { UserService } from "../users/users.services";
 import { createUserSchema } from "../users/validations/create-user.validation";
+import { prisma } from "../../lib/prisma";
 type argsOfGetTenants = {
 	id?: string;
 	meta?: PaginationArgs;
 };
 export class TenantService {
-	Tenant = new PrismaClient().tenant;
-	Prisma = new PrismaClient();
+	private prisma = prisma;
+
+	get Tenants() {
+		return this.prisma.tenant;
+	}
+
+	get Prisma() {
+		return this.prisma;
+	}
 	private userService = new UserService();
 	getTenants = async (args: argsOfGetTenants) => {
 		if (args?.id) {
-			const tenant = await this.Tenant.findFirst({
+			const tenant = await this.prisma.tenant.findFirst({
 				where: { id: args.id },
 			});
 
@@ -26,7 +34,7 @@ export class TenantService {
 			return tenant ? [tenant] : [];
 		}
 
-		const data = await paginate(this.Tenant, args?.meta);
+		const data = await paginate(this.prisma.tenant, args?.meta);
 		return data ?? [];
 	};
 
@@ -59,8 +67,10 @@ export class TenantService {
 					...Payload.user,
 					tenantId: NewTenant.id,
 					role: "admin",
+					status: "pending",
 				},
-				tx.user
+				tx.user,
+				tx.tenant
 			);
 
 			return NewTenant;
@@ -68,14 +78,14 @@ export class TenantService {
 	};
 
 	deleteTenants = async (id: string) => {
-		await this.Tenant.delete({
+		await this.prisma.tenant.delete({
 			where: { id },
 		});
 	};
 
 	//update tenant Status for SuperAdmins only (owners of application)
 	UpdateTenantStatus = async (id: string, status: Tenant["status"]) => {
-		await this.Tenant.update({
+		await this.prisma.tenant.update({
 			where: { id },
 			data: {
 				status,

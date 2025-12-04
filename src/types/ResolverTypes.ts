@@ -1,9 +1,24 @@
+import type { PrismaClient, Tenant } from "@prisma/client";
 import { GraphQLResolveInfo } from "graphql";
-
+export type ResolverContext = {
+	token?: string;
+	tenant?: {
+		id: string;
+		token: string;
+		refreshToken: string;
+		userId: string;
+		tenantId: string;
+		createdAt: string;
+		expiresAt: string;
+		refreshExpiresAt: string;
+	};
+	prisma?: PrismaClient;
+	userId?: string;
+};
 export type ResolverFn<
 	Parent = any,
 	Args = any,
-	Context = any,
+	Context = ResolverContext,
 	Result = any
 > = (
 	parent: Parent,
@@ -22,11 +37,26 @@ export type QueryResolver<Args = any, Result = any, Context = any> = ResolverFn<
 export type MutationResolver<
 	Args = any,
 	Result = any,
-	Context = any
+	Context = {
+		token?: string;
+		tenant?: {
+			id: string;
+			token: string;
+			refreshToken: string;
+			userId: string;
+			tenantId: string;
+			createdAt: string;
+			expiresAt: string;
+			refreshExpiresAt: string;
+		};
+		prisma?: PrismaClient;
+		userId?: string;
+	}
 > = ResolverFn<{}, Args, Context, Result>;
 
+export type ResolverGroup = Record<string, ResolverFn>;
+export type ResolverItem = ResolverFn | ResolverGroup;
+
 export type ResolversMap = {
-	Query?: Record<string, ResolverFn>;
-	Mutation?: Record<string, Record<string, ResolverFn> | ResolverFn>;
-	[key: string]: any;
+	[key: string]: Record<string, ResolverItem>;
 };

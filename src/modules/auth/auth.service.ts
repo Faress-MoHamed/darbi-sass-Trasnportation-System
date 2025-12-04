@@ -6,16 +6,14 @@ import { UserService } from "../users/users.services";
 import { PrismaClient, UserStatus } from "@prisma/client";
 import { AppError } from "../../errors/AppError";
 import { BadRequestError } from "../../errors/BadRequestError";
+import { prisma } from "../../lib/prisma";
 
 export class AuthService {
 	private userService = new UserService();
 	private tokenService = new TokenService();
 	private logService = new LogService();
-	private prisma = new PrismaClient();
 	private otpService = new OtpService();
 
-
-	
 	async login(phone: string, password: string) {
 		const user = await this.userService.findByPhoneWithTenant(phone);
 		if (!user) AuthErrorService.throwInvalidCredentials();
@@ -38,6 +36,7 @@ export class AuthService {
 			user.id,
 			user.tenantId
 		);
+		console.log({ token, refreshToken });
 
 		await this.userService.updateLastLogin(user.id);
 
@@ -93,7 +92,7 @@ export class AuthService {
 		if (newPassword.trim() !== ConfirmnewPassword.trim()) {
 			throw new BadRequestError();
 		}
-		const user = await this.prisma.user.findFirst({
+		const user = await prisma.user.findFirst({
 			where: {
 				otpTokens: {
 					every: {
@@ -108,7 +107,7 @@ export class AuthService {
 
 		// حذف كل توكنات الدخول
 		// هنا نستخدم prisma مباشرة أو ممكن تنقل ل TokenService revokeTokenByUserId لو ضفتها
-		await this.prisma.accessToken.deleteMany({ where: { userId: user.id } });
+		await prisma.accessToken.deleteMany({ where: { userId: user.id } });
 
 		await this.logService.logAction({
 			tenantId: user.tenantId,
@@ -123,7 +122,7 @@ export class AuthService {
 
 	async logout(token: string) {
 		await this.tokenService.revokeToken(token);
-		const existingUser = await this.prisma.user.findFirst({
+		const existingUser = await prisma.user.findFirst({
 			where: {
 				accessTokens: {
 					every: {

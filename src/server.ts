@@ -1,4 +1,6 @@
+import "dotenv/config";
 import createServer from './app';
+import { prisma } from "./lib/prisma";
 
 
 createServer().then((url) => {

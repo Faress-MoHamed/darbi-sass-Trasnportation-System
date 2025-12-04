@@ -19,25 +19,12 @@ export const authTypeDefs = gql`
 	input ForgetPasswordInput {
 		phone: String!
 	}
-	input resetPasswordInput {
+	input ResetPasswordInput {
 		token: String!
 		newPassword: String!
 		ConfirmnewPassword: String!
 	}
-	enum UserRole {
-		admin
-		supervisor
-		driver
-		passenger
-	}
 
-	type User {
-		id: String
-		name: String
-		email: String
-		phone: String
-		role: UserRole
-	}
 
 	type LoginResponse {
 		token: String
@@ -55,18 +42,16 @@ export const authTypeDefs = gql`
 		refreshToken: String
 		token: String
 	}
-
 	type AuthMutations {
 		login(input: LoginInput!): LoginResponse
 		logout(token: String!): ActionResponse
 		refreshToken(input: RefreshTokenInput): RefreshTokenResponse
 		forgetPassword(input: ForgetPasswordInput): ActionResponse
 		verifyOtp(input: VerifyOtpInput): ActionResponse
-		resetPassword(input: resetPasswordInput): ActionResponse
-		LoginUserForFirstTime(input: LoginUserForFirstTimeInput): ActionResponse
+		resetPassword(input: ResetPasswordInput): ActionResponse
+		loginUserForFirstTime(input: LoginUserForFirstTimeInput): ActionResponse
 	}
-
 	type Mutation {
-		Auth: AuthMutations
+		auth: AuthMutations!
 	}
 `;

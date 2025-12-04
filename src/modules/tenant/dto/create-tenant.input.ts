@@ -32,8 +32,8 @@ export function createTenantInput(args: CreateTenantPayload): CreateTenant {
 		tenantData: {
 			id: args?.id,
 			name: tenantData.name,
-			planType: tenantData.planType ?? "basic",
-			status: tenantData.status ?? "suspended",
+			planType: "basic",
+			status: "suspended",
 		},
 
 		user: args.user as any,

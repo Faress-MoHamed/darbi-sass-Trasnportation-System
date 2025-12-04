@@ -2,8 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import * as crypto from "crypto";
 import { AppError } from "../../errors/AppError";
 
-const prisma = new PrismaClient();
-
+import { prisma } from "../../lib/prisma";
 export class TokenService {
   private readonly TOKEN_EXPIRY_HOURS = 24;
   private readonly REFRESH_TOKEN_EXPIRY_DAYS = 30;
