@@ -23,7 +23,7 @@ import { safeResolver } from "../../../helpers/safeResolver";
 import { requirePermission } from "../../../middlewares/auth.middleware";
 
 export const rbacResolvers = createResolvers({
-	Query: {
+	PermissionsQuery: {
 		permissions: safeResolver(async (_, __, context) =>
 			new RBACService(context.prisma).getAllPermissions()
 		),
@@ -70,36 +70,32 @@ export const rbacResolvers = createResolvers({
 			) => new RBACService(context.prisma).hasPermission(userId, permissionKey)
 		),
 	},
+	Query: { rbac: () => ({}) },
 	Mutation: {
-		rbac: () => ({}), // Returns empty object for namespace
+		rbac: () => ({}),
 	},
 	PermessionMutations: {
-		createPermission: requirePermission("permissions.manage")(
-			safeResolver(
-				async (_: any, { input }: { input: CreatePermissionDTO }, context) => {
-					const data = CreatePermissionSchema.parse(input);
-					return new RBACService(context.prisma).createPermission(
-						data.key,
-						data.description
-					);
-				}
-			)
-		),
-
-		updatePermission: requirePermission("permissions.manage")(
+		CuPermission: requirePermission("permissions.manage")(
 			safeResolver(
 				async (
 					_: any,
-					{ id, input }: { id: number; input: UpdatePermissionDTO },
+					{ input, id }: { input: CreatePermissionDTO; id?: number },
 					context
 				) => {
-					const data = UpdatePermissionSchema.parse(input);
-
-					return new RBACService(context.prisma).updatePermission(
-						id,
-						data.key,
-						data.description
-					);
+					if (id) {
+						const data = UpdatePermissionSchema.parse(input);
+						return new RBACService(context.prisma).updatePermission(
+							id,
+							data.key,
+							data.description
+						);
+					} else {
+						const data = CreatePermissionSchema.parse(input);
+						return new RBACService(context.prisma).createPermission(
+							data.key,
+							data.description
+						);
+					}
 				}
 			)
 		),
@@ -110,43 +106,41 @@ export const rbacResolvers = createResolvers({
 			)
 		),
 
-		createRole: safeResolver(
-			async (_: any, { input }: { input: CreateRoleDTO }, context) => {
-				const data = CreateRoleSchema.parse(input);
-				const role = await new RBACService(context.prisma).createRole(
-					context.tenant?.tenantId!,
-					data.name,
-					data.description || null,
-					data.permissionIds
-				);
-
-				return {
-					...role,
-					permissions: role.rolePermissions.map((rp) => rp.permission),
-				};
-			}
-		),
-
-		updateRole: requirePermission("roles.update")(
+		CuRole: requirePermission("roles.manage")(
 			safeResolver(
 				async (
 					_: any,
-					{ id, input }: { id: number; input: UpdateRoleDTO },
+					{ input, id }: { input: CreateRoleDTO; id?: number },
 					context
 				) => {
-					const data = UpdateRoleSchema.parse(input);
+					if (id) {
+						const data = UpdateRoleSchema.parse(input);
 
-					const role = await new RBACService(context.prisma).updateRole(
-						id,
-						data.name,
-						data.description,
-						data.permissionIds
-					);
+						const role = await new RBACService(context.prisma).updateRole(
+							id,
+							data.name,
+							data.description,
+							data.permissionIds
+						);
 
-					return {
-						...role,
-						permissions: role.rolePermissions.map((rp) => rp.permission),
-					};
+						return {
+							...role,
+							permissions: role.rolePermissions.map((rp) => rp.permission),
+						};
+					} else {
+						const data = CreateRoleSchema.parse(input);
+						const role = await new RBACService(context.prisma).createRole(
+							context.tenant?.tenantId!,
+							data.name,
+							data.description || null,
+							data.permissionIds
+						);
+
+						return {
+							...role,
+							permissions: role.rolePermissions.map((rp) => rp.permission),
+						};
+					}
 				}
 			)
 		),
@@ -185,7 +179,8 @@ export const rbacResolvers = createResolvers({
 					const data = AssignRolesToUserSchema.parse(input);
 					return new RBACService(context.prisma).assignRolesToUser(
 						data.userId,
-						data.roleIds
+						data.roleIds,
+						context
 					);
 				}
 			)

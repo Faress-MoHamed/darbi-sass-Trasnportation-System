@@ -14,14 +14,11 @@ export const RBACTypeDef = gql`
 		name: String!
 		description: String
 		rolePermissions: [RolePermission!]
-		userRoles: [UserRole!]
-		permissionCount: Int
 	}
 
 	type RolePermission {
 		roleId: Int!
 		permissionId: Int!
-		role: Role!
 		permission: Permission!
 	}
 
@@ -54,7 +51,7 @@ export const RBACTypeDef = gql`
 		roleIds: [Int!]!
 	}
 
-	type Query {
+	type PermissionsQuery {
 		# Get all permissions
 		permissions: [Permission!]!
 
@@ -73,16 +70,17 @@ export const RBACTypeDef = gql`
 		# Check if user has permission
 		hasPermission(userId: String!, permissionKey: String!): Boolean!
 	}
+	type Query {
+		rbac: PermissionsQuery
+	}
 
 	type PermessionMutations {
 		# Permission Management
-		createPermission(input: CreatePermissionInput!): Permission!
-		updatePermission(id: Int!, input: CreatePermissionInput!): Permission!
+		CuPermission(input: CreatePermissionInput!, id: Int): Permission!
 		deletePermission(id: Int!): Boolean!
 
 		# Role Management
-		createRole(input: CreateRoleInput!): RoleWithPermissions!
-		updateRole(id: Int!, input: UpdateRoleInput!): RoleWithPermissions!
+		CuRole(input: CreateRoleInput!,id: Int): RoleWithPermissions!
 		deleteRole(id: Int!): Boolean!
 
 		# Assign permissions to role
@@ -97,7 +95,6 @@ export const RBACTypeDef = gql`
 		# Remove role from user
 		removeRoleFromUser(userId: String!, roleId: Int!): Boolean!
 	}
-
 
 	type Mutation {
 		rbac: PermessionMutations!

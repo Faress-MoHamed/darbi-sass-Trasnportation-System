@@ -1,5 +1,6 @@
 import { PrismaClient, Permission, Role } from "@prisma/client";
 import { CheckIfUserExist } from "../../helpers/checkIfUserExist";
+import type { ResolverContext } from "../../types/ResolverTypes";
 
 export class RBACService {
 	prisma: PrismaClient;
@@ -171,7 +172,11 @@ export class RBACService {
 
 	// ========== User-Role Assignment ==========
 
-	async assignRolesToUser(userId: string, roleIds: number[]): Promise<boolean> {
+	async assignRolesToUser(
+		userId: string,
+		roleIds: number[],
+		context: ResolverContext
+	): Promise<boolean> {
 		await CheckIfUserExist(userId);
 		// Delete existing roles
 		await this.prisma.userRole.deleteMany({
@@ -183,6 +188,7 @@ export class RBACService {
 			data: roleIds.map((roleId) => ({
 				userId,
 				roleId,
+				tenantId: context.tenant?.tenantId!,
 			})),
 		});
 
@@ -199,9 +205,9 @@ export class RBACService {
 		return true;
 	}
 
-	async getUserRoles(userId: string) {
+	async getUserRoles(userId?: string) {
 		await CheckIfUserExist(userId);
-		return this.prisma.userRole.findMany({
+		return await this.prisma.userRole.findMany({
 			where: { userId },
 			include: {
 				role: {
@@ -235,7 +241,6 @@ export class RBACService {
 				},
 			},
 		});
-
 		// Check if any role has the permission
 		return userRoles.some((userRole) =>
 			userRole.role.rolePermissions.some(
