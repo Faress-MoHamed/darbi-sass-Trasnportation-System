@@ -27,6 +27,9 @@ export class UserService {
 	async findByPhone(phone: string) {
 		return this.User.findFirst({ where: { phone } });
 	}
+	async findByToken(token?: string) {
+		return this.User.findFirst({ where: { accessTokens: { some: { token } } } });
+	}
 
 	async findByPhoneWithTenant(phone: string) {
 		return this.User.findFirst({

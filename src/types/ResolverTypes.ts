@@ -1,4 +1,4 @@
-import type { PrismaClient, Tenant } from "@prisma/client";
+import type { PrismaClient, Tenant, User } from "@prisma/client";
 import { GraphQLResolveInfo } from "graphql";
 export type ResolverContext = {
 	token?: string;
@@ -14,6 +14,7 @@ export type ResolverContext = {
 	};
 	prisma?: PrismaClient;
 	userId?: string;
+	user?: User | null;
 };
 export type ResolverFn<
 	Parent = any,

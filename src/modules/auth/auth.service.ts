@@ -36,7 +36,6 @@ export class AuthService {
 			user.id,
 			user.tenantId
 		);
-		console.log({ token, refreshToken });
 
 		await this.userService.updateLastLogin(user.id);
 
@@ -67,7 +66,6 @@ export class AuthService {
 	}
 
 	async forgetPassword(phone: string) {
-		console.log({ phone });
 		const user = await this.userService.findByPhone(phone);
 		if (!user) {
 			// Do not reveal user existence

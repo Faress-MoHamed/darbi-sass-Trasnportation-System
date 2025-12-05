@@ -20,7 +20,6 @@ export type CreateTenantPayload = Omit<
 };
 
 export function createTenantInput(args: CreateTenantPayload): CreateTenant {
-	console.log("Validating user:", args.user);
 
 	const { error: tenantError, data: tenantData } =
 		createTenantSchema.safeParse(args);

@@ -8,6 +8,7 @@ import { createApolloServer } from "./graphql/createApolloServer";
 import { PrismaForDev } from "./lib/prisma";
 import type { ApolloServer } from "@apollo/server";
 import type { ResolverContext } from "./types/ResolverTypes";
+import { UserService } from "./modules/users/users.services";
 
 export default async function createServer() {
 	const app = express();
@@ -30,12 +31,13 @@ export default async function createServer() {
 				}
 
 				const tenant = await getTenantFromToken(token);
-				console.log({ tenant });
+				const user = await new UserService().findByToken(token);
 				return {
 					token,
 					tenant,
 					userId: tenant?.userId,
 					prisma: PrismaForDev(tenant?.tenantId, tenant?.userId), // نمرّر tenant.id هنا
+					user,
 				};
 			},
 		})

@@ -11,8 +11,7 @@ export const PERMISSIONS = {
 
 	// Role & Permission Management
 	ROLES_VIEW: "roles.view",
-	ROLES_CREATE: "roles.create",
-	ROLES_UPDATE: "roles.update",
+	ROLES_MANAGE: "roles.manage",
 	ROLES_DELETE: "roles.delete",
 	PERMISSIONS_MANAGE: "permissions.manage",
 
@@ -175,8 +174,7 @@ export const PERMISSION_DESCRIPTIONS: Record<PermissionKey, string> = {
 
 	// Role & Permission Management
 	[PERMISSIONS.ROLES_VIEW]: "View roles list and details",
-	[PERMISSIONS.ROLES_CREATE]: "Create new roles",
-	[PERMISSIONS.ROLES_UPDATE]: "Update role information",
+	[PERMISSIONS.ROLES_MANAGE]: "Manage roles",
 	[PERMISSIONS.ROLES_DELETE]: "Delete roles",
 	[PERMISSIONS.PERMISSIONS_MANAGE]: "Manage role permissions",
 

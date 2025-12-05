@@ -9,7 +9,8 @@
 		"strict": true,
 		"skipLibCheck": true, // لتفادي مشاكل أنواع المكتبات الخارجية
 		"forceConsistentCasingInFileNames": true,
-		"sourceMap": true
-	},
+		"sourceMap": true,
+		"incremental": true
+		},
 	"include": ["src/**/*", "src/api"]
 }

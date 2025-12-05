@@ -7,7 +7,9 @@ export class ValidationError extends Error {
 
 	constructor(zodError: ZodError, statusCode = 400, isOperational = true) {
 		super("Validation failed");
-
+		console.log({
+			errors: zodError.issues?.map((e) => e.path?.map((el) => el.toString())),
+		});
 		this.statusCode = statusCode;
 		this.isOperational = isOperational;
 		this.errors = zodError.issues;
