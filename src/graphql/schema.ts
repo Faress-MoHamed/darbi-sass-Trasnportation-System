@@ -4,7 +4,7 @@ import { RouteTypeDef } from "../modules/routes/graphql/routes.typedef";
 import { stationTypeDef } from "../modules/stations/graphql/stations.typedef";
 import { tenantTypeDefs } from "../modules/tenant/graphql/tenant.typeDefs";
 import { driverTypeDefs } from "../modules/drivers/graphql/driver.schema";
-// import { busTypeDefs } from "../modules/buses/graphql/bus.schema";
+import { busTypeDefs } from "../modules/buses/graphql/bus.schema";
 import { mergeTypeDefs } from "@graphql-tools/merge";
 import { userTypeDefs } from "../modules/user/graphql/index.typedef";
 import { BookingTypeDefs } from "../modules/Booking/graphql/index.typedef";
@@ -21,7 +21,7 @@ const typeDefs = mergeTypeDefs([
 	TripTypeDefs,
 
 	driverTypeDefs,
-	// busTypeDefs,
+	busTypeDefs,
 ]);
 
 export default typeDefs;
