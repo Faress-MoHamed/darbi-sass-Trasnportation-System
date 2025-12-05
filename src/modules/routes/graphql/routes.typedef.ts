@@ -164,12 +164,11 @@ export const RouteTypeDef = gql`
 		hoursAhead: Int!
 	}
 
-
 	# ============================================================================
 	# Queries
 	# ============================================================================
 
-	type Query {
+	type RoutesQuery {
 		"""
 		Get route by ID
 		"""
@@ -198,7 +197,9 @@ export const RouteTypeDef = gql`
 			params: GetRoutesWithUpcomingTripsInput!
 		): [RouteWithActiveTrips!]!
 	}
-
+	type Query {
+		routes: RoutesQuery
+	}
 	# ============================================================================
 	# Mutations
 	# ============================================================================
@@ -260,5 +261,4 @@ export const RouteTypeDef = gql`
 	type Mutation {
 		route: RouteMutation
 	}
-
 `;

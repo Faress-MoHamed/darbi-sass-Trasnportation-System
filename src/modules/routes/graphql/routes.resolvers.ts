@@ -20,7 +20,7 @@ import type { CreateRoute } from "../route.type";
 
 // ============================================================================
 const RoutesResolvers = createResolvers({
-	Query: {
+	RoutesQuery: {
 		getRoute: safeResolver(async (_parent: any, args, context) => {
 			const validation = RouteIdParamDto.safeParse({ routeId: args.routeId });
 			if (validation.error) {
@@ -92,6 +92,9 @@ const RoutesResolvers = createResolvers({
 				return await routeService.getRoutesWithUpcomingTrips(validation.data);
 			}
 		),
+	},
+	Query: {
+		routes : () => ({}), // Returns empty object for namespace
 	},
 	Mutation: {
 		route: () => ({}), // Returns empty object for namespace
