@@ -16,6 +16,9 @@ The Driver Module manages all driver-related operations in the transportation sy
 
 #### `createDriver`
 Creates a new driver and associated user account.
+
+> **Note**: `tenantId` is automatically extracted from your authentication token. You don't need to provide it.
+
 ```graphql
 mutation CreateDriver($input: CreateDriverInput!) {
   createDriver(input: $input) {
@@ -27,6 +30,20 @@ mutation CreateDriver($input: CreateDriverInput!) {
       email
       phone
     }
+  }
+}
+```
+
+**Example Variables:**
+```json
+{
+  "input": {
+    "name": "John Doe",
+    "phone": "+1234567890",
+    "password": "SecurePass123",
+    "email": "john@example.com",
+    "licenseNumber": "DL123456",
+    "vehicleType": "Sedan"
   }
 }
 ```
@@ -92,6 +109,35 @@ query GetStats($driverId: ID!) {
     totalTrips
     completedTrips
     rating
+  }
+}
+```
+
+## Authentication & Authorization
+
+> [!IMPORTANT]
+> **Authentication Required**: All driver operations require authentication. The `tenantId` is automatically extracted from your JWT token.
+
+### How It Works
+1. Login to get a JWT token
+2. Include `Authorization: Bearer <token>` header in all requests
+3. The system automatically uses your tenant from the token
+4. No need to provide `tenantId` in the input
+
+### Getting a Token
+```graphql
+mutation {
+  auth {
+    login(input: {
+      phone: "YOUR_PHONE"
+      password: "YOUR_PASSWORD"
+    }) {
+      token
+      user {
+        id
+        name
+      }
+    }
   }
 }
 ```

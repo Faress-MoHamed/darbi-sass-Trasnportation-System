@@ -52,7 +52,9 @@ export const driverResolvers = {
         // Create a new driver
         createDriver: async (_: any, { input }: any, context: Context) => {
             const service = new DriverService(context.prisma);
-            return service.createDriver(input);
+            // Extract tenantId from authenticated context
+            const contextTenantId = context.tenant?.tenantId;
+            return service.createDriver(input, contextTenantId);
         },
 
         // Update an existing driver

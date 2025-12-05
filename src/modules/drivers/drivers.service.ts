@@ -42,19 +42,27 @@ export class DriverService {
 		}
 	}
 
-	// Creates a new driver along with a user account
-	async createDriver(data: CreateDriverInput): Promise<Driver> {
-		// Validate input
-		const { data: validatedData, error } = createDriverSchema.safeParse(data);
-		if (error) {
-			throw new AppError(error.message, 400);
-		}
+    // Creates a new driver along with a user account
+    async createDriver(data: CreateDriverInput, contextTenantId?: string): Promise<Driver> {
+        // Validate input
+        const { data: validatedData, error } = createDriverSchema.safeParse(data);
+        if (error) {
+            throw new AppError(error.message, 400);
+        }
 
-		// Validate license uniqueness
-		await this.validateLicenseUniqueness(
-			validatedData.licenseNumber,
-			validatedData.tenantId
-		);
+        // Ensure we have tenantId from context
+        if (!contextTenantId) {
+            throw new AppError(
+                "Authentication required. Please login to create a driver.",
+                401
+            );
+        }
+
+        // Validate license uniqueness
+        await this.validateLicenseUniqueness(
+            validatedData.licenseNumber,
+            contextTenantId
+        );
 
 		// Check if user with this phone already exists
 		const existingUser = await this.prisma.user.findFirst({
@@ -70,10 +78,10 @@ export class DriverService {
 			throw new AppError("User with this phone or email already exists", 400);
 		}
 
-		// Validate tenant exists and is active
-		const tenant = await this.prisma.tenant.findUnique({
-			where: { id: validatedData.tenantId },
-		});
+        // Validate tenant exists and is active
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: contextTenantId },
+        });
 
 		if (!tenant) {
 			throw new AppError("Tenant not found", 404);
@@ -88,44 +96,44 @@ export class DriverService {
 		const SALT_ROUNDS = 12;
 		const passwordHash = await bcrypt.hash(validatedData.password, SALT_ROUNDS);
 
-		// Create user and driver in a transaction
-		const result = await this.prisma.$transaction(async (tx) => {
-			// Create user with driver role
-			const user = await tx.user.create({
-				data: {
-					tenantId: validatedData.tenantId,
-					phone: validatedData.phone,
-					email: validatedData.email ?? null,
-					name: validatedData.name,
-					password: passwordHash,
-					role: "driver",
-					status: "active",
-					mustChangePassword: true,
-				},
-			});
+        // Create user and driver in a transaction
+        const result = await this.prisma.$transaction(async (tx) => {
+            // Create user with driver role
+            const user = await tx.user.create({
+                data: {
+                    tenantId: contextTenantId,
+                    phone: validatedData.phone,
+                    email: validatedData.email ?? null,
+                    name: validatedData.name,
+                    password: passwordHash,
+                    role: "driver",
+                    status: "active",
+                    mustChangePassword: true,
+                },
+            });
 
-			// Create driver linked to the new user
-			const driver = await tx.driver.create({
-				data: {
-					userId: user.id,
-					tenantId: validatedData.tenantId,
-					licenseNumber: validatedData.licenseNumber,
-					vehicleType: validatedData.vehicleType,
-					status: validatedData.status || DriverStatus.offline,
-					connected: validatedData.status === DriverStatus.available,
-				},
-				include: {
-					user: {
-						select: {
-							id: true,
-							name: true,
-							email: true,
-							phone: true,
-							avatar: true,
-						},
-					},
-				},
-			});
+            // Create driver linked to the new user
+            const driver = await tx.driver.create({
+                data: {
+                    userId: user.id,
+                    tenantId: contextTenantId,
+                    licenseNumber: validatedData.licenseNumber,
+                    vehicleType: validatedData.vehicleType,
+                    status: validatedData.status || DriverStatus.offline,
+                    connected: validatedData.status === DriverStatus.available,
+                },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            phone: true,
+                            avatar: true,
+                        },
+                    },
+                },
+            });
 
 			return driver;
 		});
