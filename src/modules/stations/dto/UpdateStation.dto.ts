@@ -8,3 +8,10 @@ export const UpdateStationDtoSchema = z.object({
   sequence: z.number().int().optional(),
 });
 export type UpdateStationDto = z.infer<typeof UpdateStationDtoSchema>;
+export interface UpdateStationType {
+	name?: string;
+	latitude?: number;
+	longitude?: number;
+	routeId?: string;
+	sequence?: number;
+}

@@ -12,15 +12,15 @@ import { UpdateStationDtoSchema } from "../dto/UpdateStation.dto";
 import { StationService } from "../stations.service";
 
 export const stationResolvers = createResolvers({
-	Query: {
-		getStation: safeResolver(async (_: any, { id }: any, context) => {
+	StationsQuery: {
+		getStation: safeResolver(async (_: any, { id ,NoTripsIncluded}: any, context) => {
 			// Validate id as UUID string (simple check)
 			if (typeof id !== "string" || !id.match(/^[0-9a-fA-F-]{36}$/)) {
 				throw new AppError("Invalid station ID", 400);
 			}
 
 			const stationService = new StationService(context?.prisma);
-			return stationService.getStationById(id);
+			return stationService.getStationById(id,NoTripsIncluded);
 		}),
 
 		getStations: safeResolver(async (_: any, args: any, context) => {
@@ -77,6 +77,9 @@ export const stationResolvers = createResolvers({
 			);
 		}),
 	},
+	Query: {
+		stations: () => ({}), // Returns empty object for namespace
+	},
 	Mutation: {
 		station: () => ({}), // Returns empty object for namespace
 	},
@@ -88,7 +91,7 @@ export const stationResolvers = createResolvers({
 			}
 
 			const stationService = new StationService(context?.prisma);
-			return stationService.createStation(validation.data);
+			return stationService.createStation(data);
 		}),
 
 		updateStation: safeResolver(async (_: any, { id, data }: any, context) => {
@@ -116,15 +119,22 @@ export const stationResolvers = createResolvers({
 
 		CreateMultipleStations: safeResolver(
 			async (_: any, { data }: any, context) => {
+				console.log({
+					data: data?.map((station: any) => ({
+						...station,
+					})),
+				});
 				const validation = CreateMultipleStationsDtoSchema.safeParse({
-					stations: data,
+					stations: data?.map((station: any) => ({
+						...station,
+					})),
 				});
 				if (!validation.success) {
 					throw new ValidationError(validation.error, 400);
 				}
 
 				const stationService = new StationService(context?.prisma);
-				return stationService.CreateMultipleStations(validation.data.stations);
+				return stationService.CreateMultipleStations(data.stations);
 			}
 		),
 

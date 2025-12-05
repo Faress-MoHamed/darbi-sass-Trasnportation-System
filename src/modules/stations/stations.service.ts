@@ -1,27 +1,13 @@
 import { PrismaClient, Station, Prisma } from "@prisma/client";
 import { paginate, type PaginationArgs } from "../../helpers/pagination";
 import { AppError } from "../../errors/AppError";
+import type { CreateStationType } from "./dto/CreateStation.dto";
+import type { UpdateStationType } from "./dto/UpdateStation.dto";
+import { PaginatedAndFilterService } from "../../services/Filters.service";
 
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
-
-export interface CreateStationDto {
-	tenantId: string;
-	name: string;
-	latitude?: number;
-	longitude?: number;
-	routeId?: string;
-	sequence?: number;
-}
-
-export interface UpdateStationDto {
-	name?: string;
-	latitude?: number;
-	longitude?: number;
-	routeId?: string;
-	sequence?: number;
-}
 
 export interface StationFilters {
 	routeId?: string;
@@ -51,47 +37,9 @@ export class StationService {
 	/**
 	 * Create a new station
 	 */
-	async createStation(data: CreateStationDto): Promise<Station> {
+	async createStation(data: CreateStationType): Promise<Station> {
 		try {
-			// If routeId provided, validate it exists and belongs to the tenant
-			if (data.routeId) {
-				const route = await this.prisma.route.findFirst({
-					where: {
-						id: data.routeId,
-					},
-				});
-
-				if (!route) {
-					throw new AppError(
-						`Route with ID ${data.routeId} not found or doesn't belong to tenant`
-					);
-				}
-			}
-			const stations = await this.prisma.station.findMany();
-			if (
-				stations.find(
-					(s) => s.name === data.name && s.tenantId === data.tenantId
-				)
-			) {
-				throw new AppError(
-					`Station with name ${data.name} already exists for this tenant`,
-					409
-				);
-			}
-
-			if (
-				stations.find(
-					(el) =>
-						Number(el?.latitude) === data.latitude &&
-						Number(el?.longitude) === data.longitude &&
-						el.tenantId === data.tenantId
-				)
-			) {
-				throw new AppError(
-					`Station with latitude ${data.latitude} and longitude ${data.longitude} already exists for this tenant`,
-					409
-				);
-			}
+			await this.validateOnCreateStation(data);
 			// Create station
 			const station = await this.prisma.station.create({
 				data: {
@@ -115,14 +63,17 @@ export class StationService {
 
 			return station;
 		} catch (error: any) {
-			throw new AppError(`Failed to create station: ${error.message}`);
+			throw new AppError(`${error.message || "Failed to create station"}`);
 		}
 	}
 
 	/**
 	 * Get station by ID
 	 */
-	async getStationById(id: string): Promise<Station | null> {
+	async getStationById(
+		id: string,
+		NoTripsIncluded?: number
+	): Promise<Station | null> {
 		try {
 			if (!id) {
 				throw new AppError("Station ID is required", 400);
@@ -147,7 +98,7 @@ export class StationService {
 						orderBy: {
 							scheduledArrivalTime: "desc",
 						},
-						take: 10, // Last 10 trips
+						take: NoTripsIncluded ? 0 : 5,
 					},
 				},
 			});
@@ -167,34 +118,17 @@ export class StationService {
 		filters?: StationFilters;
 	}) {
 		try {
-			if (args?.id) {
-				const station = await this.prisma.station.findFirst({
-					where: { id: args.id },
-					include: {
-						route: true,
-					},
-				});
-				return station ? station : [];
-			}
-			const where: Prisma.StationWhereInput = {};
+			const stationServiceWithPaginated =
+				new PaginatedAndFilterService<Station>(this.prisma.station, [
+					"name",
+					"id",
+					"routeId",
+				]);
 
-			if (args?.filters?.routeId) {
-				where.routeId = args.filters.routeId;
-			}
-
-			if (args?.filters?.name) {
-				where.name = {
-					contains: args.filters.name,
-					mode: "insensitive",
-				};
-			}
-			// Get stations
-			const stations = await paginate(this.prisma.station, {
+			return stationServiceWithPaginated.filterAndPaginate({
 				...args?.meta,
-				where,
+				where: { ...args?.filters, id: args?.id },
 			});
-			console.log({ stations });
-			return stations ?? [];
 		} catch (error: any) {
 			throw new AppError(`Failed to get stations: ${error.message}`);
 		}
@@ -223,7 +157,7 @@ export class StationService {
 	/**
 	 * Update station
 	 */
-	async updateStation(id: string, data: UpdateStationDto): Promise<Station> {
+	async updateStation(id: string, data: UpdateStationType): Promise<Station> {
 		try {
 			// Verify station exists and belongs to tenant
 			const existingStation = await this.prisma.station.findFirst({
@@ -321,51 +255,63 @@ export class StationService {
 	/**
 	 * Bulk create stations
 	 */
-	async CreateMultipleStations(stations: CreateStationDto[]): Promise<number> {
+	async CreateMultipleStations(stations: CreateStationType[]): Promise<number> {
 		try {
 			const Savedstations = await this.prisma.station.findMany();
+			const data = await stations.map(async (s) => {
+				if (
+					Savedstations.find(
+						(ss) => ss.name === s.name && ss.tenantId === s.tenantId
+					)
+				) {
+					throw new AppError(
+						`Station with name ${s.name} already exists for this tenant`,
+						409
+					);
+				}
 
+				if (
+					Savedstations.find(
+						(el) =>
+							Number(el?.latitude) === s.latitude &&
+							Number(el?.longitude) === s.longitude &&
+							el.tenantId === s.tenantId
+					)
+				) {
+					throw new AppError(
+						`Station with latitude ${s.latitude} and longitude ${s.longitude} already exists for this tenant`,
+						409
+					);
+				}
+				const haveNearStation = this.getStationsNearLocation(
+					s.latitude!,
+					s.longitude!
+				);
+				if (await haveNearStation) {
+					throw new AppError(
+						`A station already exists near the provided location (latitude: ${s.latitude}, longitude: ${s.longitude})`,
+						409
+					);
+				}
+				return {
+					tenantId: s.tenantId,
+					name: s.name,
+					latitude: s.latitude ? new Prisma.Decimal(s.latitude) : null,
+					longitude: s.longitude ? new Prisma.Decimal(s.longitude) : null,
+					routeId: s.routeId,
+					sequence: s.sequence,
+				};
+			});
 			const result = await this.prisma.station.createMany({
-				data: stations.map((s) => {
-					if (
-						Savedstations.find(
-							(s) => s.name === s.name && s.tenantId === s.tenantId
-						)
-					) {
-						throw new AppError(
-							`Station with name ${s.name} already exists for this tenant`,
-							409
-						);
-					}
-
-					if (
-						Savedstations.find(
-							(el) =>
-								Number(el?.latitude) === s.latitude &&
-								Number(el?.longitude) === s.longitude &&
-								el.tenantId === s.tenantId
-						)
-					) {
-						throw new AppError(
-							`Station with latitude ${s.latitude} and longitude ${s.longitude} already exists for this tenant`,
-							409
-						);
-					}
-					return {
-						tenantId: s.tenantId,
-						name: s.name,
-						latitude: s.latitude ? new Prisma.Decimal(s.latitude) : null,
-						longitude: s.longitude ? new Prisma.Decimal(s.longitude) : null,
-						routeId: s.routeId,
-						sequence: s.sequence,
-					};
-				}),
+				data: await Promise.all(data),
 				skipDuplicates: true,
 			});
 
 			return result.count;
 		} catch (error: any) {
-			throw new AppError(`Failed to bulk create stations: ${error.message}`);
+			throw new AppError(
+				`${error.message || "Failed to bulk create stations"}`
+			);
 		}
 	}
 
@@ -441,6 +387,56 @@ export class StationService {
 			return stations;
 		} catch (error: any) {
 			throw new AppError(`Failed to get nearby stations: ${error.message}`);
+		}
+	}
+
+	private async validateOnCreateStation(data: CreateStationType) {
+		// If routeId provided, validate it exists and belongs to the tenant
+		if (data.routeId) {
+			const route = await this.prisma.route.findFirst({
+				where: {
+					id: data.routeId,
+				},
+			});
+
+			if (!route) {
+				throw new AppError(
+					`Route with ID ${data.routeId} not found or doesn't belong to tenant`
+				);
+			}
+		}
+		const stations = await this.prisma.station.findMany();
+		if (
+			stations.find((s) => s.name === data.name && s.tenantId === data.tenantId)
+		) {
+			throw new AppError(
+				`Station with name ${data.name} already exists for this tenant`,
+				409
+			);
+		}
+
+		if (
+			stations.find(
+				(el) =>
+					Number(el?.latitude) === data.latitude &&
+					Number(el?.longitude) === data.longitude &&
+					el.tenantId === data.tenantId
+			)
+		) {
+			throw new AppError(
+				`Station with latitude ${data.latitude} and longitude ${data.longitude} already exists for this tenant`,
+				409
+			);
+		}
+		const haveNearStation = await this.getStationsNearLocation(
+			data.latitude!,
+			data.longitude!
+		);
+		if (haveNearStation) {
+			throw new AppError(
+				`A station already exists near the provided location (latitude: ${data.latitude}, longitude: ${data.longitude})`,
+				409
+			);
 		}
 	}
 }

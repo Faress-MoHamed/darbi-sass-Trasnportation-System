@@ -86,18 +86,6 @@ export const stationTypeDef = gql`
 		trip: Trip
 	}
 	# ============================
-	# Types related to StationStatistics query
-	# ============================
-
-	type StationStatistics {
-		stationId: ID!
-		stationName: String!
-		totalTrips: Int!
-		activeTrips: Int!
-		averageDelayMinutes: Float!
-	}
-
-	# ============================
 	# Inputs and Types related to Mutations
 	# ============================
 
@@ -126,8 +114,8 @@ export const stationTypeDef = gql`
 	# Queries
 	# ============================
 
-	type Query {
-		getStation(id: ID!): Station
+	type StationsQuery {
+		getStation(id: ID!, NoTripsIncluded: Int): Station
 		getStations(
 			id: ID
 			meta: PaginationArgs
@@ -139,9 +127,10 @@ export const stationTypeDef = gql`
 			longitude: Float!
 			radiusKm: Float
 		): [Station]
-		getStationStatistics(stationId: ID!, tenantId: ID!): StationStatistics
 	}
-
+	type Query {
+		stations: StationsQuery
+	}
 	# ============================
 	# Mutations
 	# ============================
