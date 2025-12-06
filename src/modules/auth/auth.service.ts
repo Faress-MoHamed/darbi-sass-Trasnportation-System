@@ -7,6 +7,7 @@ import { PrismaClient, UserStatus } from "@prisma/client";
 import { AppError } from "../../errors/AppError";
 import { BadRequestError } from "../../errors/BadRequestError";
 import { prisma } from "../../lib/prisma";
+import { checkObjectInModelExistOrFail } from "../../helpers/checkObjectInModelExist";
 
 export class AuthService {
 	private userService = new UserService();
@@ -106,6 +107,7 @@ export class AuthService {
 		// حذف كل توكنات الدخول
 		// هنا نستخدم prisma مباشرة أو ممكن تنقل ل TokenService revokeTokenByUserId لو ضفتها
 		await prisma.accessToken.deleteMany({ where: { userId: user.id } });
+		await prisma.otpToken.deleteMany({ where: { userId: user.id } });
 
 		await this.logService.logAction({
 			tenantId: user.tenantId,
@@ -158,11 +160,13 @@ export class AuthService {
 	}
 
 	async VerifyOtpFromUser(phone: string, otp: string) {
-		this.otpService.verifyOtp(phone, otp);
-		const user = await this.userService.findByPhone(phone);
-		if (!user) {
-			throw new AppError("user not exist");
-		}
+		this.otpService.verifyOtp(otp);
+		const user = await checkObjectInModelExistOrFail(
+			prisma.user,
+			"phone",
+			phone,
+			"user not exist"
+		);
 		const { token } = await this.tokenService.createOtpTokens(user?.id);
 		return {
 			success: true,

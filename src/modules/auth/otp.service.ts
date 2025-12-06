@@ -1,6 +1,9 @@
 import { TwilioService } from "./twilio.service";
 import { AuthErrorService } from "./authError.service";
 import { LogService } from "../../services/log.service";
+import type { PrismaClient } from "@prisma/client";
+import { prisma } from "../../lib/prisma";
+import { checkObjectInModelExistOrFail } from "../../helpers/checkObjectInModelExist";
 
 interface OtpStore {
 	[phone: string]: { code: string; expiresAt: Date; attempts: number };
@@ -20,8 +23,13 @@ export class OtpService {
 	async sendOtp(phone: string, tenantId: string, userId: string) {
 		const otpCode = this.generateOtpCode();
 		const expiresAt = new Date(Date.now() + this.OTP_EXPIRY_MINUTES * 60000);
-
-		this.otpStore[phone] = { code: otpCode, expiresAt, attempts: 0 };
+		await prisma.otp.create({
+			data: {
+				userId,
+				expiresAt,
+				code: otpCode,
+			},
+		});
 
 		await this.twilioService.sendWhatsApp(
 			phone,
@@ -37,28 +45,35 @@ export class OtpService {
 		});
 	}
 
-	verifyOtp(phone: string, code: string) {
-		const otpData = this.otpStore[phone];
-
-		if (!otpData)
-			AuthErrorService.throwGenericError(
-				"OTP not found. Please request a new one."
-			);
-
+	async verifyOtp(code: string) {
+		const otpData = await checkObjectInModelExistOrFail(
+			prisma.otp,
+			"code",
+			code,
+			"OTP not found for this phone number"
+		);
 		if (otpData.attempts >= this.MAX_OTP_ATTEMPTS) {
-			delete this.otpStore[phone];
+			await prisma.otp.delete({
+				where: { id: otpData.id },
+			});
 			AuthErrorService.throwMaxOtpAttemptsExceeded();
 		}
-
-		otpData.attempts++;
+		await prisma.otp.update({
+			where: { id: otpData.id },
+			data: { attempts: { increment: 1 } },
+		});
 
 		if (new Date() > otpData.expiresAt) {
-			delete this.otpStore[phone];
+			await prisma.otp.delete({
+				where: { id: otpData.id },
+			});
 			AuthErrorService.throwOtpExpired();
 		}
 
 		if (otpData.code !== code) AuthErrorService.throwInvalidOtp();
 
-		delete this.otpStore[phone];
+		await prisma.otp.delete({
+			where: { id: otpData.id },
+		});
 	}
 }

@@ -68,6 +68,7 @@ export class TenantService {
 					tenantId: NewTenant.id,
 					role: "admin",
 					status: "pending",
+					password: Payload.user.password || null,
 				},
 				tx.user,
 				tx.tenant

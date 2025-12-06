@@ -2,13 +2,11 @@ import { safeResolver } from "../../../../helpers/safeResolver";
 import { RouteIdParamDto } from "../../dto/route.dto";
 import { PaginationOptionsSchema } from "../../../stations/dto/PaginationOptions.dto";
 import type { ResolverContext } from "../../../../types/ResolverTypes";
-import {
-	requireTenant,
-	validateInput,
-} from "../../validation/index.validation";
 import type { PaginationArgs } from "../../../../helpers/pagination";
 import type { RouteIdArgs, RouteWithStatusArgs } from "../../types/index.type";
 import { RoutesQueriesService } from "../../services/routesQueries.service";
+import { requireTenant } from "../../../../helpers/requireTenant";
+import { validateInput } from "../../../../helpers/validateInput";
 
 export const RouteQueryResolvers = {
 	/**

@@ -9,6 +9,8 @@ import { AuthErrorService } from "../auth/authError.service";
 import { createUserSchema } from "./validations/create-user.validation";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
+import { updateUserSchema } from "./validations/updateUser.validation";
+import { checkObjectInModelExistOrFail } from "../../helpers/checkObjectInModelExist";
 
 export class UserService {
 	private readonly SALT_ROUNDS = 12;
@@ -28,10 +30,18 @@ export class UserService {
 		return this.User.findFirst({ where: { phone } });
 	}
 	async findByToken(token?: string) {
-		return this.User.findFirst({ where: { accessTokens: { some: { token } } } });
+		return this.User.findFirst({
+			where: { accessTokens: { some: { token } } },
+		});
 	}
 
 	async findByPhoneWithTenant(phone: string) {
+		await checkObjectInModelExistOrFail(
+			this.User,
+			"phone",
+			phone,
+			"User not found"
+		);
 		return this.User.findFirst({
 			where: { phone },
 			include: { tenant: true },
@@ -48,7 +58,8 @@ export class UserService {
 			| "language"
 			| "mustChangePassword"
 			| "lastLogin"
-		>,
+			| "password"
+		> & { password: string | null },
 		Model?: any,
 		TenantModel?: any
 	) {
@@ -82,8 +93,10 @@ export class UserService {
 			CleanedPayload.role !== "admin"
 		)
 			AuthErrorService.throwTenantNotActive();
-
-		const passwordHash = await this.hashPassword(CleanedPayload.password);
+		let passwordHash;
+		if (CleanedPayload.password) {
+			passwordHash = await this.hashPassword(CleanedPayload.password);
+		}
 
 		const user = await PrismaModel.create({
 			data: {
@@ -117,7 +130,52 @@ export class UserService {
 			data: { lastLogin: new Date() },
 		});
 	}
+	async updateUser(
+		data: Partial<Omit<User, "createdAt" | "updated_at">> & { id: string },
+		Model?: any
+	) {
+		const PrismaModel = Model ? Model : this.User;
 
+		// Validate input (id required)
+		const { data: validatedData, error } = updateUserSchema.safeParse(data);
+		if (error) throw new AppError(error.message, 400);
+
+		const { id, password, phone, email, ...updateFields } = validatedData;
+
+		// Check user exists
+		const user = await PrismaModel.findUnique({ where: { id } });
+		if (!user) throw new AppError("User not found", 404);
+
+		// If phone or email is changing, check uniqueness
+		if (phone && phone !== user.phone) {
+			const phoneExists = await PrismaModel.findFirst({ where: { phone } });
+			if (phoneExists) throw new AppError("Phone already in use", 400);
+		}
+		if (email && email !== user.email) {
+			const emailExists = await PrismaModel.findFirst({ where: { email } });
+			if (emailExists) throw new AppError("Email already in use", 400);
+		}
+
+		// If password present, hash it
+		let passwordHash;
+		if (password) {
+			passwordHash = await this.hashPassword(password);
+		}
+
+		const updatedUser = await PrismaModel.update({
+			where: { id },
+			data: {
+				...updateFields,
+				phone,
+				email,
+				...(passwordHash
+					? { password: passwordHash, mustChangePassword: false }
+					: {}),
+			},
+		});
+
+		return updatedUser;
+	}
 	async updatePassword(userId: string, newPassword: string) {
 		const passwordHash = await this.hashPassword(newPassword);
 		await this.User.update({

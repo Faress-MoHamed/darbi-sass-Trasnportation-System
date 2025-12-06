@@ -9,26 +9,9 @@ import { AppError } from "../../../errors/AppError";
 import type { RoutesQueriesService } from "../services/routesQueries.service";
 import  { RouteMutationsService } from "../services/routeMutations.service";
 
-/**
- * Validate input with Zod schema
- */
-export function validateInput<T>(schema: ZodSchema<T>, data: any): T {
-	const validation = schema.safeParse(data);
-	if (!validation.success) {
-		throw new ValidationError(validation.error, 400);
-	}
-	return validation.data;
-}
 
-/**
- * Ensure tenant context exists
- */
-export function requireTenant(context: ResolverContext): string {
-	if (!context.tenant?.tenantId) {
-		throw new AppError("Unauthorized access", 401);
-	}
-	return context.tenant.tenantId;
-}
+
+
 
 /**
  * Create route service instance

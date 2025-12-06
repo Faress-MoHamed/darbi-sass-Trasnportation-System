@@ -161,17 +161,36 @@ model AccessToken {
 model OtpToken {
   id        String    @id @default(uuid()) @db.Uuid
   userId    String    @map("user_id") @db.Uuid
-  token     String    @db.VarChar(10)
+  token     String    @db.Text()
   expiresAt DateTime  @map("expires_at")
   verified  Boolean   @default(false)
   createdAt DateTime  @default(now()) @map("created_at")
   usedAt    DateTime? @map("used_at")
-
+  
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  otp       Otp?     @relation(fields: [otpId], references: [id])
+  otpId     String?  @db.Uuid @unique
 
   @@index([userId])
   @@index([token])
   @@map("otp_tokens")
+}
+
+model Otp {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at")
+  code      String    @unique  @db.VarChar(10)
+  createdAt DateTime  @default(now()) @map("created_at")
+  attempts  Int       @default(0)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  otpToken OtpToken?
+
+
+  @@index([userId])
+  @@map("otp")
 }
 
 // ============================================================================
@@ -243,8 +262,8 @@ model User {
   role               UserRoleEnum @default(passenger)
   name               String?      @db.VarChar(150)
   email              String?      @unique @db.VarChar(150)
-  phone              String       @db.VarChar(20)
-  password           String       @map("password") @db.Text
+  phone              String       @unique @db.VarChar(20)
+  password           String?       @map("password") @db.Text
   avatar             String?      @db.VarChar(255)
   language           String?      @db.VarChar(10)
   status             UserStatus
@@ -270,6 +289,7 @@ model User {
   customFieldValues UserCustomFieldValue[]
   accessTokens      AccessToken[]
   otpTokens         OtpToken[]
+  otps Otp[]
   @@index([tenantId])
   @@index([email])
   @@index([phone])

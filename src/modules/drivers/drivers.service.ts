@@ -14,11 +14,24 @@ import {
 	DriverListDto,
 	TripHistoryFiltersDto,
 } from "./dto/driver.dto";
+import { UserService } from "../users/users.services";
+import { PaginatedAndFilterService } from "../../services/Filters.service";
+import type { PaginationArgs } from "../../helpers/pagination";
+import { checkObjectInModelExistOrFail } from "../../helpers/checkObjectInModelExist";
 
 // Driver Service
 // Handles all business logic for driver management
 export class DriverService {
-	constructor(private prisma: PrismaClient) {}
+	private prisma: PrismaClient;
+	private userService: UserService;
+
+	constructor(prisma?: PrismaClient) {
+		if (!prisma) {
+			throw new AppError("Prisma client instance is required", 500);
+		}
+		this.prisma = prisma;
+		this.userService = new UserService();
+	}
 
 	// Validates that a license number is unique within a tenant
 	private async validateLicenseUniqueness(
@@ -42,127 +55,118 @@ export class DriverService {
 		}
 	}
 
-    // Creates a new driver along with a user account
-    async createDriver(data: CreateDriverInput, contextTenantId?: string): Promise<Driver> {
-        // Validate input
-        const { data: validatedData, error } = createDriverSchema.safeParse(data);
-        if (error) {
-            throw new AppError(error.message, 400);
-        }
+	// Creates or updates a driver and related user
+	async CuDriver(
+		validatedData: CreateDriverInput | UpdateDriverInput,
+		tenantId: string,
+		driverId?: string
+	) {
+		// =============================
+		// UPDATE DRIVER
+		// =============================
+		if (driverId) {
+			const driver = await checkObjectInModelExistOrFail(
+				this.prisma.driver,
+				"id",
+				driverId,
+				"Driver not found"
+			);
 
-        // Ensure we have tenantId from context
-        if (!contextTenantId) {
-            throw new AppError(
-                "Authentication required. Please login to create a driver.",
-                401
-            );
-        }
-
-        // Validate license uniqueness
-        await this.validateLicenseUniqueness(
-            validatedData.licenseNumber,
-            contextTenantId
-        );
-
-		// Check if user with this phone already exists
-		const existingUser = await this.prisma.user.findFirst({
-			where: {
-				OR: [
-					{ phone: validatedData.phone },
-					...(validatedData.email ? [{ email: validatedData.email }] : []),
-				],
-			},
-		});
-
-		if (existingUser) {
-			throw new AppError("User with this phone or email already exists", 400);
-		}
-
-        // Validate tenant exists and is active
-        const tenant = await this.prisma.tenant.findUnique({
-            where: { id: contextTenantId },
-        });
-
-		if (!tenant) {
-			throw new AppError("Tenant not found", 404);
-		}
-
-		if (tenant.status !== "active") {
-			throw new AppError("Tenant is not active", 403);
-		}
-
-		// Hash password
-		const bcrypt = require("bcrypt");
-		const SALT_ROUNDS = 12;
-		const passwordHash = await bcrypt.hash(validatedData.password, SALT_ROUNDS);
-
-        // Create user and driver in a transaction
-        const result = await this.prisma.$transaction(async (tx) => {
-            // Create user with driver role
-            const user = await tx.user.create({
-                data: {
-                    tenantId: contextTenantId,
-                    phone: validatedData.phone,
-                    email: validatedData.email ?? null,
-                    name: validatedData.name,
-                    password: passwordHash,
-                    role: "driver",
-                    status: "active",
-                    mustChangePassword: true,
-                },
-            });
-
-            // Create driver linked to the new user
-            const driver = await tx.driver.create({
-                data: {
-                    userId: user.id,
-                    tenantId: contextTenantId,
-                    licenseNumber: validatedData.licenseNumber,
-                    vehicleType: validatedData.vehicleType,
-                    status: validatedData.status || DriverStatus.offline,
-                    connected: validatedData.status === DriverStatus.available,
-                },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true,
-                            phone: true,
-                            avatar: true,
-                        },
-                    },
-                },
-            });
-
-			return driver;
-		});
-
-		return result;
-	}
-
-	// Gets a driver by ID
-	async getDriverById(id: string): Promise<Driver | null> {
-		return this.prisma.driver.findUnique({
-			where: { id },
-			include: {
-				user: {
-					select: {
-						id: true,
-						name: true,
-						email: true,
-						phone: true,
-						avatar: true,
+			// License uniqueness check
+			if (validatedData.licenseNumber) {
+				await this.validateLicenseUniqueness(
+					validatedData.licenseNumber,
+					driver.tenantId,
+					driverId
+				);
+			}
+			const result = await this.prisma.$transaction(async (tx) => {
+				// Update only fields provided
+				await tx.driver.update({
+					where: { id: driverId },
+					data: { ...validatedData },
+				});
+				await this.userService.updateUser(
+					{
+						id: driver.userId,
+						name: validatedData.name,
+						phone: validatedData.phone,
+						email: validatedData.email,
+						password: validatedData.password,
 					},
-				},
-			},
-		});
+					tx.user
+				);
+			});
+			return result;
+		} else {
+			// =============================
+			// CREATE NEW DRIVER
+			// =============================
+
+			if (validatedData.licenseNumber) {
+				await this.validateLicenseUniqueness(
+					validatedData.licenseNumber,
+					tenantId
+				);
+			}
+
+			// Create user + driver in a single transaction
+			const result = await this.prisma.$transaction(async (tx) => {
+				// Create user
+				console.log({ validatedData });
+				const user = await this.userService.createUser(
+					{
+						tenantId,
+						phone: validatedData.phone,
+						email: validatedData.email || null,
+						name: validatedData.name,
+						password: validatedData.password || null,
+						role: "driver",
+						status: "active",
+					},
+					tx.user,
+					tx.tenant
+				);
+
+				// Create Driver
+				const driver = await tx.driver.create({
+					data: {
+						userId: user.id,
+						tenantId,
+						licenseNumber: validatedData.licenseNumber,
+						vehicleType: validatedData.vehicleType,
+						status: validatedData.status || DriverStatus.offline,
+						connected: validatedData.status === DriverStatus.available,
+					},
+					include: {
+						user: {
+							select: {
+								id: true,
+								name: true,
+								email: true,
+								phone: true,
+								avatar: true,
+							},
+						},
+					},
+				});
+
+				return driver;
+			});
+			return result;
+		}
 	}
 
 	// Gets a driver by user ID
-	async getDriverByUserId(userId: string): Promise<Driver | null> {
+	async getDriverById(driverId: string): Promise<Driver | null> {
+		await checkObjectInModelExistOrFail(
+			this.prisma.driver,
+			"id",
+			driverId,
+			"User not found"
+		);
 		return this.prisma.driver.findUnique({
-			where: { userId },
+			where: { id: driverId },
 			include: {
 				user: {
 					select: {
@@ -177,138 +181,17 @@ export class DriverService {
 		});
 	}
 
-	// Lists drivers with optional filters and pagination
-	async listDrivers(
-		filters?: DriverFiltersDto,
-		pagination?: PaginationDto
-	): Promise<DriverListDto<Driver>> {
-		const page = pagination?.page || 1;
-		const limit = pagination?.limit || 10;
-		const skip = (page - 1) * limit;
-
-		// Build where clause
-		const where: any = {};
-
-		// Tenant filtering - CRITICAL for multi-tenant security
-		if (filters?.tenantId) {
-			where.tenantId = filters.tenantId;
-		}
-
-		if (filters?.status) {
-			where.status = filters.status;
-		}
-
-		if (filters?.vehicleType) {
-			where.vehicleType = filters.vehicleType;
-		}
-
-		if (filters?.minRating) {
-			where.rating = { gte: filters.minRating };
-		}
-
-		if (filters?.search) {
-			where.OR = [
-				{ licenseNumber: { contains: filters.search, mode: "insensitive" } },
-				{ user: { name: { contains: filters.search, mode: "insensitive" } } },
-				{ user: { phone: { contains: filters.search, mode: "insensitive" } } },
-			];
-		}
-
-		// Execute queries in parallel
-		const [drivers, totalCount] = await Promise.all([
-			this.prisma.driver.findMany({
-				where,
-				skip,
-				take: limit,
-				include: {
-					user: {
-						select: {
-							id: true,
-							name: true,
-							email: true,
-							phone: true,
-							avatar: true,
-						},
-					},
-				},
-				orderBy: { user: { createdAt: "desc" } },
-			}),
-			this.prisma.driver.count({ where }),
-		]);
-
-		const totalPages = Math.ceil(totalCount / limit);
-
-		return {
-			nodes: drivers,
-			totalCount,
-			pageInfo: {
-				currentPage: page,
-				totalPages,
-				hasNextPage: page < totalPages,
-				hasPreviousPage: page > 1,
-			},
-		};
+	// // Lists drivers with optional filters and pagination
+	async getAllDrivers(meta?: PaginationArgs) {
+		return await new PaginatedAndFilterService(this.prisma.driver, [
+			"licenseNumber",
+			"vehicleType",
+			"status",
+		]).filterAndPaginate(meta);
 	}
 
 	// Updates a driver
-	async updateDriver(id: string, data: UpdateDriverInput): Promise<Driver> {
-		// Validate input
-		const { data: validatedData, error } = updateDriverSchema.safeParse(data);
-		if (error) {
-			throw new AppError(error.message, 400);
-		}
-
-		// Check if driver exists
-		const driver = await this.prisma.driver.findUnique({
-			where: { id },
-		});
-
-		if (!driver) {
-			throw new AppError("Driver not found", 404);
-		}
-
-		// Validate license uniqueness if being updated
-		if (validatedData.licenseNumber) {
-			await this.validateLicenseUniqueness(
-				validatedData.licenseNumber,
-				driver.tenantId,
-				id
-			);
-		}
-
-		// Update driver
-		const updatedDriver = await this.prisma.driver.update({
-			where: { id },
-			data: {
-				...(validatedData.licenseNumber && {
-					licenseNumber: validatedData.licenseNumber,
-				}),
-				...(validatedData.vehicleType && {
-					vehicleType: validatedData.vehicleType,
-				}),
-				...(validatedData.status && {
-					status: validatedData.status,
-					connected: validatedData.status === DriverStatus.available,
-				}),
-				...(validatedData.rating !== undefined && {
-					rating: validatedData.rating,
-				}),
-			},
-			include: {
-				user: {
-					select: {
-						id: true,
-						name: true,
-						email: true,
-						phone: true,
-						avatar: true,
-					},
-				},
-			},
-		});
-
-		return updatedDriver;
-	}
+	async updateDriver(id: string, validatedData: UpdateDriverInput) {}
 
 	// Updates driver status (online/offline/unavailable)
 	async updateDriverStatus(id: string, status: DriverStatus): Promise<Driver> {
@@ -344,18 +227,15 @@ export class DriverService {
 		return updatedDriver;
 	}
 
-	// Deletes a driver
 	async deleteDriver(id: string): Promise<boolean> {
 		// Check if driver exists
-		const driver = await this.prisma.driver.findUnique({
-			where: { id },
-		});
+		await checkObjectInModelExistOrFail(
+			this.prisma.driver,
+			"id",
+			id,
+			"Driver not found"
+		);
 
-		if (!driver) {
-			throw new AppError("Driver not found", 404);
-		}
-
-		// Check if driver has active trips
 		const activeTrips = await this.prisma.trip.count({
 			where: {
 				driverId: id,
@@ -369,8 +249,6 @@ export class DriverService {
 				400
 			);
 		}
-
-		// Delete driver
 		await this.prisma.driver.delete({
 			where: { id },
 		});
@@ -382,80 +260,23 @@ export class DriverService {
 	async getDriverTripHistory(
 		driverId: string,
 		filters?: TripHistoryFiltersDto
-	): Promise<Trip[]> {
-		// Check if driver exists
-		const driver = await this.prisma.driver.findUnique({
-			where: { id: driverId },
-		});
+	) {
+		await checkObjectInModelExistOrFail(
+			this.prisma.driver,
+			"id",
+			driverId,
+			"Driver not found"
+		);
 
-		if (!driver) {
-			throw new AppError("Driver not found", 404);
-		}
-
-		// Build where clause
-		const where: any = { driverId };
-
-		if (filters?.startDate) {
-			where.departureTime = { gte: filters.startDate };
-		}
-
-		if (filters?.endDate) {
-			where.arrivalTime = { lte: filters.endDate };
-		}
-
-		if (filters?.status) {
-			where.status = filters.status;
-		}
-
-		// Get trips
-		const trips = await this.prisma.trip.findMany({
-			where,
-			include: {
-				route: true,
-				bus: true,
-				tripStations: {
-					include: {
-						station: true,
-					},
-				},
-				tripPerformance: true,
-			},
-			orderBy: { departureTime: "desc" },
+		const trips = await new PaginatedAndFilterService(this.prisma.trip, [
+			"status",
+		]).filterAndPaginate({
+			...filters?.meta,
+			...(filters?.startDate && { departureTime: { gte: filters.startDate } }),
+			...(filters?.endDate && { arrivalTime: { lte: filters.endDate } }),
+			...(filters?.status && { status: filters.status }),
 		});
 
 		return trips;
-	}
-
-	// Gets driver statistics
-	async getDriverStatistics(driverId: string) {
-		// Check if driver exists
-		const driver = await this.prisma.driver.findUnique({
-			where: { id: driverId },
-		});
-
-		if (!driver) {
-			throw new AppError("Driver not found", 404);
-		}
-
-		// Get statistics
-		const [totalTrips, completedTrips, cancelledTrips, activeTrips] =
-			await Promise.all([
-				this.prisma.trip.count({ where: { driverId } }),
-				this.prisma.trip.count({
-					where: { driverId, status: "completed" },
-				}),
-				this.prisma.trip.count({
-					where: { driverId, status: "cancelled" },
-				}),
-				this.prisma.trip.count({ where: { driverId, status: "active" } }),
-			]);
-
-		return {
-			totalTrips,
-			completedTrips,
-			cancelledTrips,
-			activeTrips,
-			rating: driver.rating,
-		};
 	}
 }

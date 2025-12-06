@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { safeResolver } from "../../../../helpers/safeResolver";
+import { validateInput } from "../../../../helpers/validateInput";
 import type { ResolverContext } from "../../../../types/ResolverTypes";
 import {
 	AddStationToRouteDto,
@@ -21,7 +22,6 @@ import type {
 } from "../../types/index.type";
 import {
 	createRouteService,
-	validateInput,
 	validateNoActiveTrips,
 } from "../../validation/index.validation";
 
@@ -51,18 +51,6 @@ export const mutationResolvers = {
 
 			const routeService = createRouteService(context);
 			return await routeService.updateRoute(args.routeId, validatedInput);
-		}
-	),
-
-	/**
-	 * Deactivate a route (soft delete)
-	 */
-	deactivateRoute: safeResolver(
-		async (_parent: any, args: RouteIdArgs, context: ResolverContext) => {
-			validateInput(RouteIdParamDto, { routeId: args.routeId });
-
-			const routeService = createRouteService(context);
-			return await routeService.deactivateRoute(args.routeId);
 		}
 	),
 
