@@ -67,17 +67,8 @@ export const stationTypeDef = gql`
 	# Types related to Trip, TripStation and their queries
 	# ============================
 
-	enum TripStatus {
-		active
-		completed
-		cancelled
-	}
-	type Trip {
-		id: ID
-		status: TripStatus
-		departureTime: DateTime
-		arrivalTime: DateTime
-	}
+
+
 
 	type TripStation {
 		id: ID

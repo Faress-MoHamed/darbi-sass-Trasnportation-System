@@ -1,6 +1,11 @@
 import gql from "graphql-tag";
 
 export const TripTypeDefs = gql`
+	enum TripStatus {
+		active
+		completed
+		cancelled
+	}
 	type TripStation {
 		tripId: ID!
 		stationId: ID!

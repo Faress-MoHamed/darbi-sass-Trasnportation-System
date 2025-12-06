@@ -9,6 +9,7 @@ import { PrismaForDev } from "./lib/prisma";
 import type { ApolloServer } from "@apollo/server";
 import type { ResolverContext } from "./types/ResolverTypes";
 import { UserService } from "./modules/users/users.services";
+import 'graphql-import-node/register';
 
 export default async function createServer() {
 	const app = express();

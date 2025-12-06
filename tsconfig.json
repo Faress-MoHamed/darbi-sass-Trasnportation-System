@@ -10,7 +10,8 @@
 		"skipLibCheck": true, // لتفادي مشاكل أنواع المكتبات الخارجية
 		"forceConsistentCasingInFileNames": true,
 		"sourceMap": true,
-		"incremental": true
-		},
-	"include": ["src/**/*", "src/api"]
+		"incremental": true,
+		"allowArbitraryExtensions": true
+	},
+	"include": ["global.d.ts", "**/*.graphql", "src/**/*", "src/api"]
 }

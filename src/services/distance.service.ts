@@ -118,7 +118,10 @@ export class DistanceService {
 	 * @param station2 Second station
 	 * @returns Distance in kilometers or null if coordinates are missing
 	 */
-	getDistanceBetweenStations(station1: Station, station2: Station): number | null {
+	getDistanceBetweenStations(
+		station1: Station,
+		station2: Station
+	): number | null {
 		if (
 			!station1.latitude ||
 			!station1.longitude ||
@@ -134,6 +137,25 @@ export class DistanceService {
 		const lon2 = (station2.longitude as unknown as Prisma.Decimal).toNumber();
 
 		return this.getDistance(lat1, lon1, lat2, lon2);
+	}
+
+
+	/**
+	 * MAIN HELPER YOU WANT
+	 * Returns { distanceKm, estimatedMinutes }
+	 */
+	getDistanceAndEstimatedTime(stations: Station[]) {
+		const distanceKm = this.calculateTotalRouteDistance(stations);
+
+		// ⚡ configurable average bus speed (km/h)
+		const AVERAGE_SPEED = 40; // change as needed
+
+		const estimatedMinutes = Math.round((distanceKm / AVERAGE_SPEED) * 60);
+
+		return {
+			distanceKm,
+			estimatedMinutes,
+		};
 	}
 }
 

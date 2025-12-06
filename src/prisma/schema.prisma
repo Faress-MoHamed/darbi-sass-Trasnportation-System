@@ -417,7 +417,7 @@ model Station {
   longitude Decimal? @db.Decimal(10, 6)
   routeId   String?  @map("route_id") @db.Uuid
   sequence  Int?
-
+  createdAt DateTime @default(now()) @map("created_at")
   tenant Tenant @relation(fields: [tenantId], references: [id])
   route  Route? @relation(fields: [routeId], references: [id])
 
