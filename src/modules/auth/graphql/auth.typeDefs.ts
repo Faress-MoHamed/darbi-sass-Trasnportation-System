@@ -25,7 +25,6 @@ export const authTypeDefs = gql`
 		ConfirmnewPassword: String!
 	}
 
-
 	type LoginResponse {
 		token: String
 		refreshToken: String
@@ -36,6 +35,7 @@ export const authTypeDefs = gql`
 	type ActionResponse {
 		success: Boolean
 		message: String
+		token: String
 	}
 
 	type RefreshTokenResponse {

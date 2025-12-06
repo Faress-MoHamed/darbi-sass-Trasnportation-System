@@ -91,30 +91,37 @@ export class AuthService {
 		if (newPassword.trim() !== ConfirmnewPassword.trim()) {
 			throw new BadRequestError();
 		}
-		const user = await prisma.user.findFirst({
+		const user = await prisma.otpToken.findFirst({
 			where: {
-				otpTokens: {
-					every: {
-						token: token,
+				token: {
+					equals: token,
+				},
+			},
+			select: {
+				userId: true,
+				user: {
+					select: {
+						id: true,
+						tenantId: true,
 					},
 				},
 			},
 		});
 		if (!user) AuthErrorService.throwUserNotFound();
-
-		await this.userService.updatePassword(user.id, newPassword);
+		console.log({ user, newPassword });
+		await this.userService.updatePassword(user.userId, newPassword);
 
 		// حذف كل توكنات الدخول
 		// هنا نستخدم prisma مباشرة أو ممكن تنقل ل TokenService revokeTokenByUserId لو ضفتها
-		await prisma.accessToken.deleteMany({ where: { userId: user.id } });
-		await prisma.otpToken.deleteMany({ where: { userId: user.id } });
+		await prisma.accessToken.deleteMany({ where: { userId: user.user?.id } });
+		await prisma.otpToken.deleteMany({ where: { userId: user.user?.id } });
 
 		await this.logService.logAction({
-			tenantId: user.tenantId,
-			userId: user.id,
+			tenantId: user.user?.tenantId,
+			userId: user.userId,
 			action: "PASSWORD_RESET",
 			entityType: "User",
-			entityId: user.id,
+			entityId: user.userId,
 		});
 
 		return { success: true, message: "Password reset successfully" };
@@ -160,7 +167,7 @@ export class AuthService {
 	}
 
 	async VerifyOtpFromUser(phone: string, otp: string) {
-		this.otpService.verifyOtp(otp);
+		await this.otpService.verifyOtp(otp);
 		const user = await checkObjectInModelExistOrFail(
 			prisma.user,
 			"phone",

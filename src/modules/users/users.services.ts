@@ -178,6 +178,7 @@ export class UserService {
 	}
 	async updatePassword(userId: string, newPassword: string) {
 		const passwordHash = await this.hashPassword(newPassword);
+		console.log({ passwordHash, userId });
 		await this.User.update({
 			where: { id: userId },
 			data: { password: passwordHash, mustChangePassword: false },
