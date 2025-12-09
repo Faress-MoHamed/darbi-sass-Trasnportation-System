@@ -7,14 +7,12 @@ export const driverInputs = gql`
 		password: String
 		email: String
 		licenseNumber: String
-		vehicleType: String
 		status: DriverStatus
 	}
 
 	input DriverFilters {
 		tenantId: ID
 		status: DriverStatus
-		vehicleType: String
 		minRating: Float
 		search: String
 	}

@@ -21,11 +21,7 @@ export const updateDriverSchema = z
 			.optional(),
 
 		licenseNumber: licenseSchema.optional(),
-		vehicleType: z
-			.string()
-			.min(2, "Vehicle type must be at least 2 characters")
-			.max(50, "Vehicle type must not exceed 50 characters")
-			.optional(),
+
 		status: z.enum(["available", "unavailable", "offline"]).optional(),
 		rating: z
 			.number()

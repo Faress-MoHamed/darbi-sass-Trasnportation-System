@@ -23,11 +23,7 @@ export const createDriverSchema = z.object({
 
 	// Driver-specific data
 	licenseNumber: licenseSchema,
-	vehicleType: z
-		.string()
-		.min(2, "Vehicle type must be at least 2 characters")
-		.max(50, "Vehicle type must not exceed 50 characters")
-		.optional(),
+
 	status: z
 		.enum(["available", "unavailable", "offline"])
 		.default("offline")

@@ -43,7 +43,6 @@ mutation CreateDriver($input: CreateDriverInput!) {
     "password": "SecurePass123",
     "email": "john@example.com",
     "licenseNumber": "DL123456",
-    "vehicleType": "Sedan"
   }
 }
 ```
@@ -99,7 +98,7 @@ query ListDrivers($filters: DriverFilters, $pagination: Pagination) {
   }
 }
 ```
-**Filters:** `tenantId`, `status`, `vehicleType`, `minRating`, `search` (name/phone/license).
+**Filters:** `tenantId`, `status`, `minRating`, `search` (name/phone/license).
 
 #### `driverStatistics`
 Get performance stats for a driver.

@@ -9,14 +9,12 @@ export interface CreateDriverDto {
 	password: string;
 	email?: string | null;
 	licenseNumber: string;
-	vehicleType?: string;
 	status?: DriverStatus;
 }
 
 // Data Transfer Object for updating an existing driver
 export interface UpdateDriverDto {
 	licenseNumber?: string;
-	vehicleType?: string;
 	status?: DriverStatus;
 	rating?: number;
 }
@@ -25,7 +23,6 @@ export interface UpdateDriverDto {
 export interface DriverFiltersDto {
 	tenantId?: string; // Filter by tenant
 	status?: DriverStatus;
-	vehicleType?: string;
 	minRating?: number;
 	search?: string; // Search by name, phone, or license number
 }

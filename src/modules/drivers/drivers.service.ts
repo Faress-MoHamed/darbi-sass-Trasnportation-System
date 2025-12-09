@@ -123,6 +123,7 @@ export class DriverService {
 						password: validatedData.password || null,
 						role: "driver",
 						status: "active",
+						deletedAt: null,
 					},
 					tx.user,
 					tx.tenant
@@ -134,9 +135,7 @@ export class DriverService {
 						userId: user.id,
 						tenantId,
 						licenseNumber: validatedData.licenseNumber,
-						vehicleType: validatedData.vehicleType,
 						status: validatedData.status || DriverStatus.offline,
-						connected: validatedData.status === DriverStatus.available,
 					},
 					include: {
 						user: {
@@ -185,7 +184,6 @@ export class DriverService {
 	async getAllDrivers(meta?: PaginationArgs) {
 		return await new PaginatedAndFilterService(this.prisma.driver, [
 			"licenseNumber",
-			"vehicleType",
 			"status",
 		]).filterAndPaginate(meta);
 	}
@@ -209,7 +207,6 @@ export class DriverService {
 			where: { id },
 			data: {
 				status,
-				connected: status === DriverStatus.available,
 			},
 			include: {
 				user: {
@@ -239,7 +236,7 @@ export class DriverService {
 		const activeTrips = await this.prisma.trip.count({
 			where: {
 				driverId: id,
-				status: "active",
+				status: { in: ["in_progress", "boarding", "scheduled", "delayed"] },
 			},
 		});
 

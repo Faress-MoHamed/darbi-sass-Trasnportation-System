@@ -7,7 +7,6 @@ export const driverTypes = gql`
     userId: ID!
     user: User
     licenseNumber: String
-    vehicleType: String
     status: DriverStatus!
     rating: Float
     connected: Boolean
