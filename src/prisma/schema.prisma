@@ -58,9 +58,12 @@ enum BusStatus {
 }
 
 enum TripStatus {
-  active
-  completed
-  cancelled
+  scheduled   // مجدولة، لسه مبدأتش
+  boarding    // ركوب الركاب
+  in_progress // في الطريق
+  delayed     // متأخرة
+  completed   // انتهت
+  cancelled   // ملغية
 }
 
 enum SubscriptionStatus {
@@ -138,7 +141,59 @@ enum AuditActionType {
   update
   delete
 }
+enum ActivityLogType {
+  action
+  audit
+  security
+  system
+}
 
+enum LogSeverity {
+  debug
+  info
+  warning
+  error
+  critical
+}
+
+enum RevenueSource {
+  ticket_sales
+  subscriptions
+  advertisements
+  partnerships
+  other
+}
+
+enum RevenueCategory {
+  passenger_fares
+  subscription_fees
+  loyalty_points_redemption
+  other
+}
+
+enum ExpenseCategory {
+  fuel
+  maintenance
+  salaries
+  insurance
+  rent
+  utilities
+  marketing
+  other
+}
+
+enum ExpenseStatus {
+  pending
+  approved
+  rejected
+  paid
+}
+enum NotificationTargetType {
+  single_user
+  role
+  all_users
+  custom_list
+}
 // ============================================================================
 // Access Tokens
 // ============================================================================
@@ -154,7 +209,7 @@ model AccessToken {
   createdAt        DateTime  @default(now()) @map("created_at")
   expiresAt        DateTime? @map("expires_at")
   refreshExpiresAt DateTime? @map("refresh_expires_at")
-
+  deletedAt  DateTime?  @map("deleted_at")
   @@map("access_tokens")
 }
 
@@ -171,6 +226,7 @@ model OtpToken {
 
   otp       Otp?     @relation(fields: [otpId], references: [id])
   otpId     String?  @db.Uuid @unique
+  deletedAt  DateTime?  @map("deleted_at")
 
   @@index([userId])
   @@index([token])
@@ -188,6 +244,7 @@ model Otp {
 
   otpToken OtpToken?
 
+  deletedAt  DateTime?  @map("deleted_at")
 
   @@index([userId])
   @@map("otp")
@@ -204,6 +261,7 @@ model Tenant {
   status    TenantStatus
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenantSettings        TenantSetting[]
   users                 User[]
@@ -221,8 +279,7 @@ model Tenant {
   loyaltyPoints         LoyaltyPoint[]
   payments              Payment[]
   paymentMethods        PaymentMethod[]
-  revenues              Revenue[]
-  expenses              Expense[]
+
   financialReports      FinancialReport[]
   notifications         Notification[]
   supportTickets        SupportTicket[]
@@ -239,6 +296,7 @@ model Tenant {
   bookingCustomFields   BookingCustomField[]
   routeCustomFields     RouteCustomField[]
   accessTokens          AccessToken[]          @relation("tenant_to_accessToken")
+  activityLogs ActivityLog[]
 
   @@map("tenants")
   userRoles UserRole[]
@@ -251,6 +309,7 @@ model TenantSetting {
   value     String?  @db.Text
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  deletedAt  DateTime?  @map("deleted_at")
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@map("tenant_settings")
@@ -270,6 +329,7 @@ model User {
   lastLogin          DateTime?    @map("last_login")
   createdAt          DateTime     @default(now()) @map("created_at")
   mustChangePassword Boolean      @default(true)
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -285,16 +345,17 @@ model User {
   notifications     Notification[]
   supportTickets    SupportTicket[]
   supportReplies    SupportReply[]
-  auditLogs         AuditLog[]
   customFieldValues UserCustomFieldValue[]
   accessTokens      AccessToken[]
   otpTokens         OtpToken[]
   otps Otp[]
   @@index([tenantId])
-  @@index([email])
-  @@index([phone])
-  @@index([status])
+  @@index([tenantId, phone])
+  @@index([tenantId, email])
+  @@index([tenantId, status])
   @@map("users")
+  notificationRecipients NotificationRecipient[]
+  activityLogs ActivityLog[]
 }
 
 model Role {
@@ -302,6 +363,7 @@ model Role {
   tenantId    String  @map("tenant_id") @db.Uuid
   name        String  @db.VarChar(100)
   description String? @db.Text
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   rolePermissions RolePermission[]
@@ -315,6 +377,7 @@ model Permission {
   id          Int     @id @default(autoincrement())
   key         String  @unique @db.VarChar(100)
   description String? @db.Text
+  deletedAt  DateTime?  @map("deleted_at")
 
   rolePermissions RolePermission[]
 
@@ -324,6 +387,7 @@ model Permission {
 model RolePermission {
   roleId       Int @map("role_id")
   permissionId Int @map("permission_id")
+  deletedAt  DateTime?  @map("deleted_at")
 
   role       Role       @relation(fields: [roleId], references: [id])
   permission Permission @relation(fields: [permissionId], references: [id])
@@ -336,6 +400,8 @@ model UserRole {
   userId String @map("user_id") @db.Uuid
   roleId Int    @map("role_id")
   tenantId String @map("tenant_id") @db.Uuid
+  deletedAt  DateTime?  @map("deleted_at")
+  
   user User @relation(fields: [userId], references: [id])
   role Role @relation(fields: [roleId], references: [id])
   tenant Tenant @relation(fields: [tenantId], references: [id])  // ← Add this!
@@ -355,7 +421,8 @@ model Log {
   entityId   String?  @map("entity_id") @db.Uuid
   ipAddress  String?  @map("ip_address") @db.VarChar(50)
   timestamp  DateTime @default(now())
-
+  deletedAt  DateTime?  @map("deleted_at")
+  
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
   @@index([tenantId])
@@ -373,10 +440,11 @@ model Driver {
   tenantId      String       @map("tenant_id") @db.Uuid
   userId        String       @unique @map("user_id") @db.Uuid
   licenseNumber String?      @map("license_number") @db.VarChar(50)
-  vehicleType   String?      @map("vehicle_type") @db.VarChar(50)
   status        DriverStatus
   rating        Decimal?     @db.Decimal(2, 1)
-  connected     Boolean?
+  lastSeenAt    DateTime?  @map("last_seen_at")  // آخر ظهور online
+  isOnline      Boolean    @default(false)  // computed from lastSeenAt
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User   @relation(fields: [userId], references: [id])
@@ -399,7 +467,8 @@ model Bus {
   status            BusStatus
   gpsTrackerId      String?   @map("gps_tracker_id") @db.VarChar(100)
   maintenanceStatus String?   @map("maintenance_status") @db.VarChar(100)
-
+  deletedAt  DateTime?  @map("deleted_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   trips             Trip[]
@@ -417,8 +486,10 @@ model Route {
   tenantId          String                  @map("tenant_id") @db.Uuid
   name              String                  @db.VarChar(150)
   distanceKm        Decimal?                @map("distance_km") @db.Decimal(6, 2)
-  estimatedTime     DateTime?               @map("estimated_time") @db.Time
+  estimatedTime   String?   @map("estimated_time") @db.VarChar(8)
   active            Boolean?
+    deletedAt  DateTime?  @map("deleted_at")
+
   tenant            Tenant                  @relation(fields: [tenantId], references: [id])
 
   stations          Station[]
@@ -438,6 +509,7 @@ model Station {
   routeId   String?  @map("route_id") @db.Uuid
   sequence  Int?
   createdAt DateTime @default(now()) @map("created_at")
+  deletedAt  DateTime?  @map("deleted_at")
   tenant Tenant @relation(fields: [tenantId], references: [id])
   route  Route? @relation(fields: [routeId], references: [id])
 
@@ -458,6 +530,7 @@ model Trip {
   status         TripStatus
   availableSeats Int?       @map("available_seats")
   notes          String?    @db.Text
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant  @relation(fields: [tenantId], references: [id])
   route  Route?  @relation(fields: [routeId], references: [id])
@@ -477,9 +550,12 @@ model Trip {
   @@index([driverId])
   @@index([status])
   @@index([departureTime])
-    @@index([tenantId, status])
+  @@index([tenantId, status])
   @@index([tenantId, departureTime])
-  @@index([routeId, departureTime])
+  @@index([routeId, departureTime]) 
+  @@index([busId, departureTime])
+  @@index([driverId, departureTime])
+  @@index([tenantId, status, departureTime])  // composite للـ queries المعقدة
   @@map("trips")
 }
 
@@ -488,7 +564,7 @@ model TripStation {
   stationId            String    @map("station_id") @db.Uuid
   scheduledArrivalTime DateTime? @map("scheduled_arrival_time")
   actualArrivalTime    DateTime? @map("actual_arrival_time")
-  departureTime        DateTime? @map("departure_time")
+  deletedAt  DateTime?  @map("deleted_at")
 
   trip    Trip    @relation(fields: [tripId], references: [id])
   station Station @relation(fields: [stationId], references: [id])
@@ -505,6 +581,7 @@ model TripLog {
   speed           Decimal? @db.Decimal(5, 2)
   passengersCount Int?     @map("passengers_count")
   timestamp       DateTime @default(now())
+  deletedAt  DateTime?  @map("deleted_at")
 
   trip Trip @relation(fields: [tripId], references: [id])
   @@index([tripId])
@@ -522,6 +599,7 @@ model Passenger {
   userId             String              @unique @map("user_id") @db.Uuid
   subscriptionStatus SubscriptionStatus? @map("subscription_status")
   pointsBalance      Int?                @map("points_balance")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User   @relation(fields: [userId], references: [id])
@@ -542,6 +620,7 @@ model Booking {
   ticketNumber String?       @map("ticket_number") @db.VarChar(100)
   bookingDate  DateTime?     @map("booking_date")
   paymentId    String?       @map("payment_id") @db.Uuid
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id])
   trip    Trip?    @relation(fields: [tripId], references: [id])
@@ -571,6 +650,7 @@ model Subscription {
   endDate   DateTime?          @map("end_date") @db.Date
   status    SubscriptionStatus
   price     Decimal?           @db.Decimal(10, 2)
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
@@ -587,6 +667,7 @@ model Ticket {
   bookingId String?   @map("booking_id") @db.Uuid
   qrCode    String?   @map("qr_code") @db.Text
   issuedAt  DateTime? @map("issued_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id])
   booking Booking? @relation(fields: [bookingId], references: [id])
@@ -602,6 +683,7 @@ model LoyaltyPoint {
   points    Int?
   reason    String?  @db.VarChar(255)
   createdAt DateTime @default(now()) @map("created_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
@@ -628,6 +710,7 @@ model Payment {
   updatedAt     DateTime      @updatedAt @map("updated_at")
   reference     String?       @db.VarChar(100)
   notes         String?       @db.Text
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
@@ -651,6 +734,7 @@ model PaymentMethod {
   token     String?           @db.VarChar(255)
   isDefault Boolean?          @map("is_default")
   createdAt DateTime          @default(now()) @map("created_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
@@ -661,33 +745,43 @@ model PaymentMethod {
 }
 
 model Revenue {
-  id          String   @id @default(uuid()) @db.Uuid
-  tenantId    String   @map("tenant_id") @db.Uuid
-  date        DateTime @db.Date
-  totalAmount Decimal? @map("total_amount") @db.Decimal(12, 2)
-  tripsCount  Int?     @map("trips_count")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id          String         @id @default(uuid())
+  tenantId  String   @map("tenant_id") @db.Uuid   // <-- هنا المشكلة.. خليها UUID
+  date        DateTime       @db.Date
+  amount      Decimal        @db.Decimal(12, 2)  // NOT NULL
+  currency    String         @default("EGP") @db.VarChar(3)
+  source      RevenueSource
+  category    RevenueCategory
+  tripsCount  Int?
+  description String?
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  deletedAt  DateTime?  @map("deleted_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  @@index([tenantId])
-  @@index([date])
-  @@map("revenues")
+  @@index([tenantId, date])
+  @@index([source, date])
 }
 
 model Expense {
-  id          String   @id @default(uuid()) @db.Uuid
-  tenantId    String   @map("tenant_id") @db.Uuid
-  description String?  @db.VarChar(255)
-  amount      Decimal? @db.Decimal(10, 2)
-  category    String?  @db.VarChar(100)
-  date        DateTime @db.Date
-  createdAt   DateTime @default(now()) @map("created_at")
+  id              String          @id @default(uuid())
+  tenantId  String   @map("tenant_id") @db.Uuid   // <-- هنا المشكلة.. خليها UUID
+  amount          Decimal         @db.Decimal(12, 2)  // NOT NULL
+  currency        String          @default("EGP") @db.VarChar(3)
+  category        ExpenseCategory
+  subcategory     String?
+  description     String
+  date            DateTime        @db.Date
+  paymentMethod   PaymentType
+  approvedBy      String?
+  approvedAt      DateTime?
+  status          ExpenseStatus   @default(pending)
+  receiptUrl      String?
+  createdBy       String
+  createdAt       DateTime        @default(now())
+  deletedAt  DateTime?  @map("deleted_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  @@index([tenantId])
-  @@index([date])
-  @@index([category])
-  @@map("expenses")
+  @@index([tenantId, date])
+  @@index([category, status])
 }
 
 model FinancialReport {
@@ -698,9 +792,10 @@ model FinancialReport {
   endDate    DateTime            @map("end_date") @db.Date
   filePath   String?             @map("file_path") @db.VarChar(255)
   createdAt  DateTime            @default(now()) @map("created_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
- @@index([tenantId])
+  @@index([tenantId])
   @@index([reportType])
   @@index([startDate])
   @@map("financial_reports")
@@ -721,12 +816,34 @@ model Notification {
   sentAt       DateTime?          @map("sent_at")
   status       NotificationStatus
   createdAt    DateTime           @default(now()) @map("created_at")
+  deletedAt    DateTime?          @map("deleted_at")
 
-  tenant     Tenant @relation(fields: [tenantId], references: [id])
-  targetUser User?  @relation(fields: [targetUserId], references: [id])
+  tenant       Tenant @relation(fields: [tenantId], references: [id])
+  targetUser   User?  @relation(fields: [targetUserId], references: [id])
+
+  recipients   NotificationRecipient[]
 
   @@map("notifications")
 }
+
+
+model NotificationRecipient {
+  id             String   @id @default(uuid()) @db.Uuid
+  notificationId String   @db.Uuid
+  userId         String   @db.Uuid
+  readAt         DateTime?
+  deliveredAt    DateTime?
+  deletedAt      DateTime? @map("deleted_at")
+
+  notification   Notification @relation(fields: [notificationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt])
+}
+
+
+
 
 model SupportTicket {
   id        String              @id @default(uuid()) @db.Uuid
@@ -737,6 +854,7 @@ model SupportTicket {
   status    SupportTicketStatus
   createdAt DateTime            @default(now()) @map("created_at")
   closedAt  DateTime?           @map("closed_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
@@ -752,6 +870,7 @@ model SupportReply {
   senderId  String?  @map("sender_id") @db.Uuid
   message   String?  @db.Text
   createdAt DateTime @default(now()) @map("created_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   ticket SupportTicket @relation(fields: [ticketId], references: [id])
   sender User?         @relation(fields: [senderId], references: [id])
@@ -768,6 +887,7 @@ model EmergencyAlert {
   locationLat Decimal? @map("location_lat") @db.Decimal(10, 6)
   locationLng Decimal? @map("location_lng") @db.Decimal(10, 6)
   createdAt   DateTime @default(now()) @map("created_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant  @relation(fields: [tenantId], references: [id])
   driver Driver? @relation(fields: [driverId], references: [id])
@@ -786,6 +906,7 @@ model AnalyticsKpi {
   metricName String?  @map("metric_name") @db.VarChar(100)
   value      Decimal? @db.Decimal(12, 2)
   timestamp  DateTime @default(now())
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -800,6 +921,7 @@ model TripPerformance {
   avgOccupancy       Decimal? @map("avg_occupancy") @db.Decimal(5, 2)
   rating             Decimal? @db.Decimal(2, 1)
   recordedAt         DateTime @map("recorded_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   trip Trip @relation(fields: [tripId], references: [id])
 
@@ -817,6 +939,7 @@ model GpsData {
   longitude Decimal? @db.Decimal(10, 6)
   speed     Decimal? @db.Decimal(5, 2)
   timestamp DateTime @default(now())
+  deletedAt  DateTime?  @map("deleted_at")
 
   bus Bus @relation(fields: [busId], references: [id])
 
@@ -828,6 +951,7 @@ model BusStatusLog {
   busId     String             @map("bus_id") @db.Uuid
   status    BusOperationStatus
   timestamp DateTime           @default(now())
+  deletedAt  DateTime?  @map("deleted_at")
 
   bus Bus @relation(fields: [busId], references: [id])
 
@@ -841,6 +965,7 @@ model MapLayer {
   data      Json?
   visible   Boolean?
   updatedAt DateTime     @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -851,20 +976,33 @@ model MapLayer {
 // Helper Tables
 // ============================================================================
 
-model AuditLog {
-  id         BigInt          @id @default(autoincrement())
-  userId     String?         @map("user_id") @db.Uuid
-  entityType String?         @map("entity_type") @db.VarChar(100)
-  entityId   String?         @map("entity_id") @db.Uuid
-  action     AuditActionType
-  oldData    Json?           @map("old_data")
-  newData    Json?           @map("new_data")
-  createdAt  DateTime        @default(now()) @map("created_at")
+model ActivityLog {
+  id         BigInt       @id @default(autoincrement())
+  tenantId  String   @map("tenant_id") @db.Uuid   // <-- هنا المشكلة.. خليها UUID
+  userId     String?  @map("user_id") @db.Uuid
+  logType    ActivityLogType  // action, audit, security, system
+  action     String
+  entityType String?
+  entityId   String?
+  oldData    Json?
+  newData    Json?
+  metadata   Json?        // extra context
+  ipAddress  String?
+  userAgent  String?
+  severity   LogSeverity  @default(info)
+  timestamp  DateTime     @default(now())
+  deletedAt  DateTime?  @map("deleted_at")
 
-  user User? @relation(fields: [userId], references: [id])
-
-  @@map("audit_logs")
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+  
+  @@index([tenantId, timestamp])
+  @@index([userId, timestamp])
+  @@index([entityType, entityId])
+  @@index([logType, severity])
 }
+
+
 
 model Setting {
   id        Int      @id @default(autoincrement())
@@ -872,6 +1010,7 @@ model Setting {
   key       String   @db.VarChar(100)
   value     String?  @db.Text
   updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -885,6 +1024,7 @@ model Attachment {
   entityId   String?  @map("entity_id") @db.Uuid
   filePath   String?  @map("file_path") @db.VarChar(255)
   uploadedAt DateTime @map("uploaded_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -906,6 +1046,7 @@ model UserCustomField {
   options   Json?
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -920,6 +1061,7 @@ model UserCustomFieldValue {
   customFieldId Int      @map("custom_field_id")
   value         String?  @db.Text
   updatedAt     DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   user        User            @relation(fields: [userId], references: [id])
   customField UserCustomField @relation(fields: [customFieldId], references: [id])
@@ -938,6 +1080,7 @@ model DriverCustomField {
   options   Json?
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -952,6 +1095,7 @@ model DriverCustomFieldValue {
   customFieldId Int      @map("custom_field_id")
   value         String?  @db.Text
   updatedAt     DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   driver      Driver            @relation(fields: [driverId], references: [id])
   customField DriverCustomField @relation(fields: [customFieldId], references: [id])
@@ -970,6 +1114,7 @@ model BusCustomField {
   options   Json?
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -984,6 +1129,7 @@ model BusCustomFieldValue {
   customFieldId Int      @map("custom_field_id")
   value         String?  @db.Text
   updatedAt     DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   bus         Bus            @relation(fields: [busId], references: [id])
   customField BusCustomField @relation(fields: [customFieldId], references: [id])
@@ -1002,6 +1148,7 @@ model PassengerCustomField {
   options   Json?
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -1016,6 +1163,7 @@ model PassengerCustomFieldValue {
   customFieldId Int      @map("custom_field_id")
   value         String?  @db.Text
   updatedAt     DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   passenger   Passenger            @relation(fields: [passengerId], references: [id])
   customField PassengerCustomField @relation(fields: [customFieldId], references: [id])
@@ -1034,6 +1182,7 @@ model TripCustomField {
   options   Json?
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -1048,6 +1197,7 @@ model TripCustomFieldValue {
   customFieldId Int      @map("custom_field_id")
   value         String?  @db.Text
   updatedAt     DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   trip        Trip            @relation(fields: [tripId], references: [id])
   customField TripCustomField @relation(fields: [customFieldId], references: [id])
@@ -1066,6 +1216,7 @@ model BookingCustomField {
   options   Json?
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -1080,6 +1231,7 @@ model BookingCustomFieldValue {
   customFieldId Int      @map("custom_field_id")
   value         String?  @db.Text
   updatedAt     DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   booking     Booking            @relation(fields: [bookingId], references: [id])
   customField BookingCustomField @relation(fields: [customFieldId], references: [id])
@@ -1098,6 +1250,7 @@ model RouteCustomField {
   options   Json?
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -1112,6 +1265,7 @@ model RouteCustomFieldValue {
   customFieldId Int      @map("custom_field_id")
   value         String?  @db.Text
   updatedAt     DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   route       Route            @relation(fields: [routeId], references: [id])
   customField RouteCustomField @relation(fields: [customFieldId], references: [id])
