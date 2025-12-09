@@ -74,7 +74,7 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 				},
 
 				async create({ model, args, query }) {
-					if (!tenantId) return new AppError("tenantId is required", 400);
+					if (!tenantId) throw new AppError("tenantId is required", 400);
 					if (!modelsWithoutDirectTenantId.includes(model)) {
 						args.data = {
 							...(args.data as any),
@@ -91,7 +91,7 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 				},
 
 				async update({ model, args, query }) {
-					if (!tenantId) return new AppError("tenantId is required", 400);
+					if (!tenantId) throw new AppError("tenantId is required", 400);
 
 					if (!modelsWithoutDirectTenantId.includes(model)) {
 						args.where = {
@@ -108,7 +108,8 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 					return query(args);
 				},
 				async delete({ model, args, query, operation }) {
-					if (!tenantId) return new AppError("tenantId is required", 400);
+					console.log({ tenantId });
+					if (!tenantId) throw new AppError("tenantId is required", 400);
 
 					if (!modelsWithoutDirectTenantId.includes(model)) {
 						args.where = {

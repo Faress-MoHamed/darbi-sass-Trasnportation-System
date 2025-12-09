@@ -5,9 +5,9 @@ export const busTypeDefs = gql`
 	# ENUMS
 	# ============================
 	enum BusStatus {
-		ACTIVE
-		INACTIVE
-		MAINTENANCE
+		active
+		maintenance
+		stopped
 	}
 
 	# ============================

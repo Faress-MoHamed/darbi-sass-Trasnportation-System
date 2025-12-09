@@ -123,9 +123,8 @@ export class BusRepository {
 	}
 
 	async softDelete(id: string) {
-		return await this.prisma.bus.update({
+		return await this.prisma.bus.delete({
 			where: { id },
-			data: { deletedAt: new Date() },
 		});
 	}
 
