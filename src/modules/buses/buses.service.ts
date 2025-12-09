@@ -1,35 +1,39 @@
-import { PrismaClient, Bus, BusStatus } from "@prisma/client";
+import { Bus, BusStatus, type PrismaClient } from "@prisma/client";
 import { AppError } from "../../errors/AppError";
-import {
-	createBusSchema,
-	CreateBusInput,
-} from "./validation/create-bus.validation";
-import {
-	updateBusSchema,
-	UpdateBusInput,
-} from "./validation/update-bus.validation";
-import { BusFiltersDto, PaginationDto, BusListDto } from "./dto/bus.dto";
-import type { PaginationArgs, PaginationMeta } from "../../helpers/pagination";
-import { PaginatedAndFilterService } from "../../services/Filters.service";
+
+import type { PaginationArgs } from "../../helpers/pagination";
+import { BusRepository } from "./buses.repository";
+import type { CreateBusInput, UpdateBusInput } from "./dto/bus.dto";
 
 // Bus Service
 // Handles all business logic for bus management
 export class BusService {
-	constructor(private prisma: PrismaClient) {}
+	private busRepository: BusRepository;
+	private prisma?: PrismaClient;
+	constructor(prisma?: PrismaClient) {
+		if (!prisma) {
+			throw new AppError("Prisma client instance is required", 500);
+		}
+		this.busRepository = new BusRepository(prisma);
+	}
 
-	// Validates that a bus number is unique within a tenant
-	async validateBusNumberUniqueness(
+	// ============================================================================
+	// Validation Helpers
+	// ============================================================================
+
+	/**
+	 * Validates that a bus number is unique within a tenant
+	 */
+	private async validateBusNumberUniqueness(
 		busNumber: string,
-		tenantId: string,
 		excludeBusId?: string
-	): Promise<void> {
-		const existingBus = await this.prisma.bus.findFirst({
-			where: {
-				busNumber,
-				tenantId,
-				...(excludeBusId && { id: { not: excludeBusId } }),
-			},
-		});
+	) {
+		const existingBus = excludeBusId
+			? await this.busRepository.findByBusNumberExcludingId(
+					busNumber,
+					excludeBusId
+			  )
+			: await this.busRepository.findByBusNumber(busNumber);
 
 		if (existingBus) {
 			throw new AppError(
@@ -39,171 +43,96 @@ export class BusService {
 		}
 	}
 
-	// Creates a new bus
-	async createBus(
-		data: CreateBusInput,
-		contextTenantId?: string
-	): Promise<Bus> {
-		// Validate input
-		const validation = createBusSchema.safeParse(data);
-		if (!validation.success) {
-			throw new AppError(
-				`Validation failed: ${validation.error.issues
-					.map((e: any) => e.message)
-					.join(", ")}`,
-				400
-			);
-		}
-
-		const validatedData = validation.data;
-
-		// Ensure we have tenantId from context
-		if (!contextTenantId) {
-			throw new AppError(
-				"Authentication required. Please login to create a bus.",
-				401
-			);
-		}
-
-		// Check bus number uniqueness within tenant
-		await this.validateBusNumberUniqueness(
-			validatedData.busNumber,
-			contextTenantId
-		);
-
-		// Create bus
-		const bus = await this.prisma.bus.create({
-			data: {
-				tenantId: contextTenantId,
-				busNumber: validatedData.busNumber,
-				capacity: validatedData.capacity,
-				type: validatedData.type,
-				status: validatedData.status || "stopped",
-				gpsTrackerId: validatedData.gpsTrackerId,
-				maintenanceStatus: validatedData.maintenanceStatus,
-			},
-			include: {
-				tenant: true,
-			},
-		});
-
-		return bus;
-	}
-
-	// Gets a bus by ID
-	async getBusById(id: string): Promise<Bus | null> {
-		const bus = await this.prisma.bus.findUnique({
-			where: { id },
-			include: {
-				tenant: true,
-			},
-		});
+	/**
+	 * Validates that a bus exists and belongs to the tenant
+	 */
+	private async validateBusExists(busId: string) {
+		const bus = await this.busRepository.findById(busId);
 
 		if (!bus) {
-			return null;
-		}
-
-		return bus;
-	}
-
-	// Lists buses with optional filters and pagination
-	async listBuses(meta?: PaginationArgs) {
-		return await new PaginatedAndFilterService(
-			this.prisma.bus
-		).filterAndPaginate(meta);
-	}
-
-	// Updates a bus
-	async updateBus(id: string, data: UpdateBusInput): Promise<Bus> {
-		// Validate input
-		const validation = updateBusSchema.safeParse(data);
-		if (!validation.success) {
-			throw new AppError(
-				`Validation failed: ${validation.error.issues
-					.map((e: any) => e.message)
-					.join(", ")}`,
-				400
-			);
-		}
-
-		const validatedData = validation.data;
-
-		// Check if bus exists
-		const existingBus = await this.prisma.bus.findUnique({
-			where: { id },
-		});
-
-		if (!existingBus) {
 			throw new AppError("Bus not found", 404);
 		}
 
+		return bus;
+	}
+
+	// ============================================================================
+	// CRUD Operations
+	// ============================================================================
+
+	/**
+	 * Creates a new bus
+	 */
+	async createBus(data: CreateBusInput, contextTenantId: string) {
+		// Check bus number uniqueness within tenant
+		await this.validateBusNumberUniqueness(data.busNumber);
+
+		// Create bus
+		const bus = await this.busRepository.create({
+			tenant: {
+				connect: { id: contextTenantId },
+			},
+			busNumber: data.busNumber,
+			capacity: data.capacity,
+			type: data.type,
+			status: data.status || "stopped",
+			gpsTrackerId: data.gpsTrackerId,
+			maintenanceStatus: data.maintenanceStatus,
+		});
+
+		return bus;
+	}
+
+	/**
+	 * Gets a bus by ID
+	 */
+	async getBusById(id: string) {
+		return await this.busRepository.findById(id);
+	}
+
+	/**
+	 * Gets a bus by bus number within a tenant
+	 */
+	async getBusByNumber(busNumber: string) {
+		return await this.busRepository.findByBusNumber(busNumber);
+	}
+
+	/**
+	 * Lists buses with optional filters and pagination
+	 */
+	async listBuses(meta?: PaginationArgs) {
+		return await this.busRepository.findAll(meta);
+	}
+
+	/**
+	 * Gets all buses for a tenant with optional status filter
+	 */
+	async getBusesByTenant(status?: BusStatus) {
+		return await this.busRepository.findByStatus(status);
+	}
+
+	/**
+	 * Updates a bus
+	 */
+	async updateBus(id: string, data: UpdateBusInput["data"]) {
+		// Check if bus exists
+		const existingBus = await this.validateBusExists(id);
+
 		// If bus number is being updated, check uniqueness
-		if (
-			validatedData.busNumber &&
-			validatedData.busNumber !== existingBus.busNumber
-		) {
-			await this.validateBusNumberUniqueness(
-				validatedData.busNumber,
-				existingBus.tenantId,
-				id
-			);
+		if (data.busNumber && data.busNumber !== existingBus.busNumber) {
+			await this.validateBusNumberUniqueness(data.busNumber, existingBus.id);
 		}
 
 		// Update bus
-		const updatedBus = await this.prisma.bus.update({
-			where: { id },
-			data: validatedData,
-			include: {
-				tenant: true,
-			},
-		});
-
-		return updatedBus;
+		return await this.busRepository.update(id, data);
 	}
 
-	// Updates bus status (active/maintenance/stopped)
-	async updateBusStatus(
-		id: string,
-		status: BusStatus,
-		maintenanceStatus?: string
-	): Promise<Bus> {
-		// Check if bus exists
-		const existingBus = await this.prisma.bus.findUnique({
-			where: { id },
-		});
-
-		if (!existingBus) {
-			throw new AppError("Bus not found", 404);
-		}
-
-		// Update status
-		const updatedBus = await this.prisma.bus.update({
-			where: { id },
-			data: {
-				status,
-				...(maintenanceStatus !== undefined && { maintenanceStatus }),
-			},
-			include: {
-				tenant: true,
-			},
-		});
-
-		return updatedBus;
-	}
-
-	// Deletes a bus
-	async deleteBus(id: string): Promise<boolean> {
-		// Check if bus exists
-		const existingBus = await this.prisma.bus.findUnique({
-			where: { id },
-			include: {
-				trips: {
-					where: {
-						status: "active",
-					},
-				},
-			},
-		});
+	/**
+	 * Soft deletes a bus
+	 */
+	async deleteBus(id: string) {
+		// Check if bus exists with active trips
+		const existingBus = await this.busRepository.findByIdWithTrips(id);
 
 		if (!existingBus) {
 			throw new AppError("Bus not found", 404);
@@ -217,48 +146,248 @@ export class BusService {
 			);
 		}
 
-		// Delete bus
-		await this.prisma.bus.delete({
-			where: { id },
-		});
+		// Soft delete bus
+		await this.busRepository.softDelete(id);
 
 		return true;
 	}
 
-	// Gets bus statistics
-	async getBusStatistics(busId: string) {
+	/**
+	 * Hard deletes a bus (admin only)
+	 */
+	async hardDeleteBus(id: string) {
 		// Check if bus exists
-		const bus = await this.prisma.bus.findUnique({
-			where: { id: busId },
-		});
+		const existingBus = await this.busRepository.findDeleted(id);
+
+		if (!existingBus) {
+			throw new AppError("Bus not found", 404);
+		}
+
+		// Hard delete bus
+		await this.busRepository.hardDelete(id);
+
+		return true;
+	}
+
+	/**
+	 * Restores a soft-deleted bus
+	 */
+	async restoreBus(id: string) {
+		const bus = await this.busRepository.findDeleted(id);
 
 		if (!bus) {
 			throw new AppError("Bus not found", 404);
 		}
 
-		// Get trip statistics
-		const [totalTrips, completedTrips, activeTrips] = await Promise.all([
-			this.prisma.trip.count({
-				where: { busId },
-			}),
-			this.prisma.trip.count({
-				where: {
-					busId,
-					status: "completed",
-				},
-			}),
-			this.prisma.trip.count({
-				where: {
-					busId,
-					status: "active",
-				},
-			}),
-		]);
+		if (!bus.deletedAt) {
+			throw new AppError("Bus is not deleted", 400);
+		}
 
-		return {
-			totalTrips,
-			completedTrips,
-			activeTrips,
-		};
+		return await this.busRepository.restore(id);
+	}
+
+	// ============================================================================
+	// Status Management
+	// ============================================================================
+
+	/**
+	 * Updates bus status (active/maintenance/stopped)
+	 */
+	async updateBusStatus(
+		id: string,
+		status: BusStatus,
+		maintenanceStatus?: string
+	) {
+		// Check if bus exists
+		await this.validateBusExists(id);
+
+		// Update status
+		const updatedBus = await this.busRepository.update(id, {
+			status,
+			...(maintenanceStatus !== undefined && { maintenanceStatus }),
+		});
+
+		// Log status change
+		await this.busRepository.createStatusLog(id, status);
+
+		return updatedBus;
+	}
+
+	/**
+	 * Activates a bus (sets status to active)
+	 */
+	async activateBus(id: string) {
+		return await this.updateBusStatus(id, "active", undefined);
+	}
+
+	/**
+	 * Deactivates a bus (sets status to stopped)
+	 */
+	async deactivateBus(id: string) {
+		return await this.updateBusStatus(id, "stopped", undefined);
+	}
+
+	/**
+	 * Sets bus to maintenance mode
+	 */
+	async setMaintenance(id: string, maintenanceStatus: string) {
+		return await this.updateBusStatus(id, "maintenance", maintenanceStatus);
+	}
+
+	// ============================================================================
+	// GPS & Tracking
+	// ============================================================================
+
+	/**
+	 * Gets the latest GPS location of a bus
+	 */
+	async getLatestBusLocation(busId: string) {
+		await this.validateBusExists(busId);
+		return await this.busRepository.findLatestGpsData(busId);
+	}
+
+	/**
+	 * Gets GPS history for a bus
+	 */
+	async getBusGpsHistory(busId: string, startDate?: Date, endDate?: Date) {
+		await this.validateBusExists(busId);
+		return await this.busRepository.findGpsHistory(busId, startDate, endDate);
+	}
+
+	/**
+	 * Updates bus GPS tracker ID
+	 */
+	async updateGpsTracker(busId: string, gpsTrackerId: string) {
+		await this.validateBusExists(busId);
+		return await this.busRepository.update(busId, { gpsTrackerId });
+	}
+
+	// ============================================================================
+	// Trip Management
+	// ============================================================================
+
+	/**
+	 * Gets active trips for a bus
+	 */
+	async getActiveTripsByBus(busId: string) {
+		await this.validateBusExists(busId);
+		return await this.busRepository.findActiveTrips(busId);
+	}
+
+	/**
+	 * Gets trip history for a bus
+	 */
+	async getTripHistoryByBus(busId: string, limit: number = 50) {
+		await this.validateBusExists(busId);
+		return await this.busRepository.findTripHistory(busId, limit);
+	}
+
+	// ============================================================================
+	// Availability & Scheduling
+	// ============================================================================
+
+	/**
+	 * Checks if a bus is available for a specific time slot
+	 */
+	async isBusAvailable(busId: string, startTime: Date, endTime: Date) {
+		const bus = await this.validateBusExists(busId);
+
+		// Bus must be active
+		if (bus.status !== "active") {
+			return false;
+		}
+
+		// Check for conflicting trips
+		const conflictingTripsCount =
+			await this.busRepository.countConflictingTrips(busId, startTime, endTime);
+
+		return conflictingTripsCount === 0;
+	}
+
+	/**
+	 * Gets available buses for a time slot
+	 */
+	async getAvailableBuses(startTime: Date, endTime: Date) {
+		// Get all active buses
+		const activeBuses = await this.busRepository.findActiveBuses();
+
+		// Filter buses that don't have conflicting trips
+		const availableBuses = [];
+		for (const bus of activeBuses) {
+			const isAvailable = await this.isBusAvailable(bus.id, startTime, endTime);
+			if (isAvailable) {
+				availableBuses.push(bus);
+			}
+		}
+
+		return availableBuses;
+	}
+
+	// ============================================================================
+	// Maintenance Management
+	// ============================================================================
+
+	/**
+	 * Gets buses due for maintenance
+	 */
+	async getBusesDueForMaintenance(thresholdKm?: number) {
+		// This is a placeholder - you might want to add maintenance tracking fields
+		return await this.busRepository.findMaintenanceBuses();
+	}
+
+	/**
+	 * Schedules maintenance for a bus
+	 */
+	async scheduleMaintenance(busId: string, maintenanceNotes: string) {
+		await this.validateBusExists(busId);
+		return await this.updateBusStatus(busId, "maintenance", maintenanceNotes);
+	}
+
+	/**
+	 * Completes maintenance for a bus
+	 */
+	async completeMaintenance(busId: string) {
+		const bus = await this.validateBusExists(busId);
+
+		if (bus.status !== "maintenance") {
+			throw new AppError("Bus is not in maintenance mode", 400);
+		}
+
+		return await this.updateBusStatus(busId, "active", "Maintenance completed");
+	}
+
+	// ============================================================================
+	// Bulk Operations
+	// ============================================================================
+
+	/**
+	 * Bulk updates bus status
+	 */
+	async bulkUpdateStatus(busIds: string[], status: BusStatus) {
+		return await this.busRepository.bulkUpdateStatus(busIds, status);
+	}
+
+	/**
+	 * Bulk deletes buses
+	 */
+	async bulkDelete(busIds: string[]) {
+		// Check for active trips
+		const busesWithActiveTrips =
+			await this.busRepository.findBusesWithActiveTrips(busIds);
+
+		const busesWithTrips = busesWithActiveTrips.filter(
+			(bus) => bus.trips.length > 0
+		);
+
+		if (busesWithTrips.length > 0) {
+			throw new AppError(
+				`Cannot delete buses with active trips: ${busesWithTrips
+					.map((b) => b.busNumber)
+					.join(", ")}`,
+				400
+			);
+		}
+
+		return await this.busRepository.bulkSoftDelete(busIds);
 	}
 }
