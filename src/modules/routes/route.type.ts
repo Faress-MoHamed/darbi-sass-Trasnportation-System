@@ -5,7 +5,7 @@ export type CreateRoute = {
   tenantId: string; // UUID
 	name: string;
 	distanceKm?: number | undefined;
-	estimatedTime?: Date | undefined;
+	estimatedTime?: string | undefined;
 	active: boolean; // default: true
 	stations?: string[] | undefined; // UUID[]
 };
@@ -16,7 +16,7 @@ export type CreateRoute = {
 export type UpdateRoute = {
 	name?: string | undefined;
 	distanceKm?: number | undefined;
-	estimatedTime?: Date | undefined;
+	estimatedTime?: string | undefined;
 	active?: boolean | undefined;
 };
 

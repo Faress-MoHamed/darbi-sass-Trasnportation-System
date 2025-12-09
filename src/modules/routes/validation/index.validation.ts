@@ -7,19 +7,16 @@ import { ValidationError } from "../../../errors/ValidationError";
 import type { ResolverContext } from "../../../types/ResolverTypes";
 import { AppError } from "../../../errors/AppError";
 import type { RoutesQueriesService } from "../services/routesQueries.service";
-import  { RouteMutationsService } from "../services/routeMutations.service";
-
-
-
-
+import { RouteMutationsService } from "../services/routeMutations.service";
 
 /**
  * Create route service instance
  */
-export function createRouteService(context: ResolverContext): RouteMutationsService {
+export function createRouteService(
+	context: ResolverContext
+): RouteMutationsService {
 	return new RouteMutationsService(context.prisma);
 }
-
 
 /**
  * Check if route has active trips
@@ -28,7 +25,13 @@ export async function validateNoActiveTrips(
 	routeService: RoutesQueriesService,
 	routeId: string
 ) {
-	const route = await routeService.getRouteWithTrips(routeId, "active");
+	const route = await routeService.getRouteWithTrips(routeId, [
+		"scheduled",
+		"in_progress",
+		"completed",
+		"delayed",
+		"boarding",
+	]);
 
 	if (route?.trips && route.trips.length > 0) {
 		throw new AppError(

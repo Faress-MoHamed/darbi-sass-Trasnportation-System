@@ -30,7 +30,6 @@ export default gql`
 
 		userId: ID!
 		licenseNumber: String
-		vehicleType: String
 		status: DriverStatus!
 		rating: Float
 		connected: Boolean

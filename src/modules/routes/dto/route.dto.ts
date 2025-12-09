@@ -5,7 +5,7 @@ export const CreateRouteDto = z.object({
 	
 	name: z.string().min(1, "Route name is required").max(255),
 	distanceKm: z.number().positive("Distance must be positive").optional(),
-	estimatedTime: z.coerce.date().optional(),
+	estimatedTime: z.string().optional(),
 	active: z.boolean().default(true),
 	stations: z.array(z.string().uuid()).optional(),
 });
@@ -16,7 +16,7 @@ export type CreateRouteDto = z.infer<typeof CreateRouteDto>;
 export const UpdateRouteDto = z.object({
 	name: z.string().min(1).max(255).optional(),
 	distanceKm: z.number().positive().optional(),
-	estimatedTime: z.coerce.date().optional(),
+	estimatedTime: z.string().optional(),
 	active: z.boolean().optional(),
 });
 

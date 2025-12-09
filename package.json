@@ -18,6 +18,7 @@
 		"build": "tsc",
 		"dev": "nodemon --watch src --exec ts-node src/server.ts",
 		"update_db": "prisma migrate dev && prisma generate",
+		"reset_db": "prisma migrate reset",
 		"seed:permissions": "node --loader ts-node src/prisma/seeders/permissions.seeder.ts",
 		"seed:init": "node --loader ts-node ./src/prisma/seeders/superAdmins.seeder.ts"
 	},

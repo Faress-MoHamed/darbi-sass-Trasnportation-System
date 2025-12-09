@@ -7,6 +7,7 @@ import type { RouteIdArgs, RouteWithStatusArgs } from "../../types/index.type";
 import { RoutesQueriesService } from "../../services/routesQueries.service";
 import { requireTenant } from "../../../../helpers/requireTenant";
 import { validateInput } from "../../../../helpers/validateInput";
+import type { TripStatus } from "@prisma/client";
 
 export const RouteQueryResolvers = {
 	/**
@@ -55,7 +56,7 @@ export const RouteQueryResolvers = {
 			const routeService = new RoutesQueriesService(context.prisma);
 			return await routeService.getRouteWithTrips(
 				args.routeId,
-				args.tripStatus
+				[args.tripStatus].flat().filter(Boolean) as TripStatus[]
 			);
 		}
 	),

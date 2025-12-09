@@ -41,7 +41,7 @@ export class RoutesQueriesService {
 
 		return route;
 	}
-	async getRouteWithTrips(routeId: string, status?: TripStatus) {
+	async getRouteWithTrips(routeId: string, status?: TripStatus[]) {
 		const route = await this.prisma.route.findUnique({
 			where: { id: routeId },
 			include: {
@@ -49,7 +49,7 @@ export class RoutesQueriesService {
 					orderBy: { sequence: "asc" as const },
 				},
 				trips: {
-					where: status ? { status } : undefined,
+					where: status ? { status: { in: status } } : undefined,
 					include: {
 						bus: true,
 						driver: {

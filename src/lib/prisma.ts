@@ -24,6 +24,7 @@ const modelsWithoutDirectTenantId = [
 	"TripCustomFieldValue",
 	"BookingCustomFieldValue",
 	"RouteCustomFieldValue",
+	"Bus",
 ];
 export const prisma =
 	globalForPrisma.prisma ||
@@ -33,7 +34,23 @@ export const prisma =
 	});
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-
+const addToActivityLog = async (
+	tenantId: string,
+	userId: string | null,
+	logType: "action" | "audit" | "security" | "system",
+	action: string,
+	entityType?: string
+) => {
+	await prisma.activityLog.create({
+		data: {
+			tenantId,
+			userId: userId || undefined,
+			logType,
+			action,
+			entityType,
+		},
+	});
+};
 export const PrismaForDev = (tenantId?: string, userId?: string) => {
 	return prisma.$extends({
 		query: {
@@ -42,6 +59,7 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 					args.where = {
 						...(args.where as any),
 						...(tenantId ? { tenantId } : {}),
+						deletedAt: null, // Soft delete filter
 					};
 					return query(args);
 				},
@@ -50,6 +68,7 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 					args.where = {
 						...(args.where as any),
 						...(tenantId ? { tenantId } : {}),
+						deletedAt: null, // Soft delete filter
 					};
 					return query(args);
 				},
@@ -62,17 +81,51 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 							...(tenantId ? { tenantId } : {}),
 						};
 					}
+					await addToActivityLog(
+						tenantId,
+						userId || null,
+						"action",
+						`Created a new record in ${model} model`
+					);
 					return query(args);
 				},
 
 				async update({ model, args, query }) {
+					if (!tenantId) return new AppError("tenantId is required", 400);
+
 					if (!modelsWithoutDirectTenantId.includes(model)) {
 						args.where = {
 							...(args.where as any),
 							...(tenantId ? { tenantId } : {}),
 						};
 					}
+					await addToActivityLog(
+						tenantId,
+						userId || null,
+						"action",
+						`updated a record in ${model} model`
+					);
 					return query(args);
+				},
+				async delete({ model, args, query, operation }) {
+					if (!tenantId) return new AppError("tenantId is required", 400);
+
+					if (!modelsWithoutDirectTenantId.includes(model)) {
+						args.where = {
+							...(args.where as any),
+							...(tenantId ? { tenantId } : {}),
+						};
+					}
+					await addToActivityLog(
+						tenantId,
+						userId || null,
+						"action",
+						`deleted a record in ${model} model`
+					);
+					return (prisma[model as keyof typeof prisma] as any).update({
+						where: args.where,
+						data: { deletedAt: new Date() },
+					});
 				},
 			},
 		},

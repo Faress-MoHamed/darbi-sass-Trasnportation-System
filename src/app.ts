@@ -9,7 +9,7 @@ import { PrismaForDev } from "./lib/prisma";
 import type { ApolloServer } from "@apollo/server";
 import type { ResolverContext } from "./types/ResolverTypes";
 import { UserService } from "./modules/users/users.services";
-import 'graphql-import-node/register';
+import "graphql-import-node/register";
 
 export default async function createServer() {
 	const app = express();
@@ -30,7 +30,6 @@ export default async function createServer() {
 				if (auth?.startsWith("Bearer ")) {
 					token = auth.split(" ")[1];
 				}
-
 				const tenant = await getTenantFromToken(token);
 				const user = await new UserService().findByToken(token);
 				return {
@@ -45,6 +44,6 @@ export default async function createServer() {
 	);
 
 	return new Promise<string>((resolve) => {
-		httpServer.listen(8080, () => resolve("http://localhost:8080/graphql"));
+		httpServer.listen(8081, () => resolve("http://localhost:8081/graphql"));
 	});
 }

@@ -20,7 +20,6 @@ export type CreateTenantPayload = Omit<
 };
 
 export function createTenantInput(args: CreateTenantPayload): CreateTenant {
-
 	const { error: tenantError, data: tenantData } =
 		createTenantSchema.safeParse(args);
 
@@ -33,6 +32,7 @@ export function createTenantInput(args: CreateTenantPayload): CreateTenant {
 			name: tenantData.name,
 			planType: "basic",
 			status: "suspended",
+			deletedAt: null,
 		},
 
 		user: args.user as any,

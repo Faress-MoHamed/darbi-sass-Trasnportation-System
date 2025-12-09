@@ -111,7 +111,6 @@ export const createDriverSchema = z.object({
 	}),
 	// Driver-specific data
 	licenseNumber: z.string().max(50).optional().nullable(),
-	vehicleType: z.string().max(50).optional().nullable(),
 	status: DriverStatus,
 	rating: z.number().min(0).max(5).optional().nullable(),
 	connected: z.boolean().optional().nullable(),

@@ -11,8 +11,7 @@ export const TripTypeDefs = gql`
 		stationId: ID!
 		scheduledArrivalTime: DateTime
 		actualArrivalTime: DateTime
-		departureTime: DateTime
-
+ 
 		# Relations
 		trip: Trip!
 		station: Station!

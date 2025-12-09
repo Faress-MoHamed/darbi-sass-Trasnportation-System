@@ -63,19 +63,7 @@ export const stationTypeDef = gql`
 		fieldValue: String
 	}
 
-	# ============================
-	# Types related to Trip, TripStation and their queries
-	# ============================
 
-
-
-
-	type TripStation {
-		id: ID
-		scheduledArrivalTime: DateTime
-		actualArrivalTime: DateTime
-		trip: Trip
-	}
 	# ============================
 	# Inputs and Types related to Mutations
 	# ============================
