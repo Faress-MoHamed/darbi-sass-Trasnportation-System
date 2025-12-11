@@ -9,7 +9,7 @@ export const bookingTypeDefs = gql`
 
 	type Booking {
 		id: ID!
-		tenantId: String!
+
 		userId: String!
 		tripId: String!
 		ticketNumber: String!
@@ -42,7 +42,7 @@ export const bookingTypeDefs = gql`
 
 	type Ticket {
 		id: ID!
-		tenantId: String!
+
 		bookingId: String!
 		qrCode: String!
 		issuedAt: String!
@@ -82,7 +82,6 @@ export const bookingTypeDefs = gql`
 	}
 
 	input CreateBookingInput {
-		tenantId: String!
 		userId: String!
 		tripId: String!
 		seatNumber: String
@@ -96,7 +95,6 @@ export const bookingTypeDefs = gql`
 	}
 
 	input BookingSearchInput {
-		tenantId: String!
 		userId: String
 		tripId: String
 		status: BookingStatus
@@ -108,7 +106,7 @@ export const bookingTypeDefs = gql`
 
 	input ProcessPaymentInput {
 		bookingId: String!
-		tenantId: String!
+
 		paymentMethodId: String!
 		amount: Float!
 	}
@@ -119,25 +117,24 @@ export const bookingTypeDefs = gql`
 	}
 
 	extend type Query {
-		booking(id: String!, tenantId: String!): Booking
+		booking(id: String!): Booking
 		bookings(input: BookingSearchInput!): BookingPagination!
 		userBookings(
 			userId: String!
-			tenantId: String!
+
 			status: BookingStatus
 			page: Int
 			limit: Int
 		): [Booking!]!
-		upcomingBookings(userId: String!, tenantId: String!, limit: Int): [Booking!]!
+		upcomingBookings(userId: String!, limit: Int): [Booking!]!
 		bookingStatistics(
-			tenantId: String!
 			startDate: String
 			endDate: String
 			userId: String
 			tripId: String
 		): BookingStatistics!
-		availableSeats(tripId: String!, tenantId: String!): AvailableSeats!
-		verifyTicket(ticketNumber: String!, tenantId: String!): TicketVerification!
+		availableSeats(tripId: String!): AvailableSeats!
+		verifyTicket(ticketNumber: String!): TicketVerification!
 	}
 
 	extend type Mutation {
@@ -145,13 +142,10 @@ export const bookingTypeDefs = gql`
 		processPayment(input: ProcessPaymentInput!): PaymentResult!
 		cancelBooking(
 			bookingId: String!
-			tenantId: String!
+
 			userId: String
 		): Booking!
-		bulkCancelBookings(
-			bookingIds: [String!]!
-			tenantId: String!
-		): [Booking!]!
-		checkInPassenger(bookingId: String!, tenantId: String!): Booking!
+		bulkCancelBookings(bookingIds: [String!]!): [Booking!]!
+		checkInPassenger(bookingId: String!): Booking!
 	}
 `;
