@@ -20,7 +20,7 @@ export class OtpService {
 		return Math.floor(100000 + Math.random() * 900000).toString();
 	}
 
-	async sendOtp(phone: string, tenantId: string, userId: string) {
+	async sendOtp(phone: string, 	 userId: string) {
 		const otpCode = this.generateOtpCode();
 		const expiresAt = new Date(Date.now() + this.OTP_EXPIRY_MINUTES * 60000);
 		await prisma.otp.create({
@@ -37,7 +37,6 @@ export class OtpService {
 		);
 
 		await this.logService.logAction({
-			tenantId,
 			userId,
 			action: "OTP_SENT",
 			entityType: "User",

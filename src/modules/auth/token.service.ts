@@ -21,7 +21,7 @@ export class TokenService {
     );
   }
 
-  async createTokens(userId: string, tenantId: string) {
+  async createTokens(userId: string) {
     const token = this.generateToken();
     const refreshToken = this.generateToken();
 
@@ -32,7 +32,6 @@ export class TokenService {
         userId,
         expiresAt: this.getTokenExpiry(),
         refreshExpiresAt: this.getRefreshTokenExpiry(),
-        tenantId,
       },
     });
 
@@ -113,7 +112,6 @@ export class TokenService {
     return {
       valid: true,
       userId: tokenRecord.userId,
-      tenantId: tokenRecord.user.tenantId,
     };
   }
 

@@ -35,7 +35,6 @@ export const prisma =
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 const addToActivityLog = async (
-	tenantId: string,
 	userId: string | null,
 	logType: "action" | "audit" | "security" | "system",
 	action: string,
@@ -43,7 +42,6 @@ const addToActivityLog = async (
 ) => {
 	await prisma.activityLog.create({
 		data: {
-			tenantId,
 			userId: userId || undefined,
 			logType,
 			action,
@@ -56,6 +54,8 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 		query: {
 			$allModels: {
 				async findMany({ model, args, query }) {
+					if (!tenantId) throw new AppError("tenantId is required", 400);
+
 					args.where = {
 						...(args.where as any),
 						...(tenantId ? { tenantId } : {}),
@@ -65,6 +65,7 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 				},
 
 				async findFirst({ model, args, query }) {
+
 					args.where = {
 						...(args.where as any),
 						...(tenantId ? { tenantId } : {}),
@@ -82,7 +83,6 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 						};
 					}
 					await addToActivityLog(
-						tenantId,
 						userId || null,
 						"action",
 						`Created a new record in ${model} model`
@@ -100,7 +100,6 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 						};
 					}
 					await addToActivityLog(
-						tenantId,
 						userId || null,
 						"action",
 						`updated a record in ${model} model`
@@ -118,7 +117,6 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 						};
 					}
 					await addToActivityLog(
-						tenantId,
 						userId || null,
 						"action",
 						`deleted a record in ${model} model`

@@ -52,7 +52,6 @@ const seederInitializeProject = async () => {
 			update: {},
 			create: {
 				id: admin.id,
-				tenantId: tenant.id,
 				role: "SuperAdmin",
 				name: admin.name,
 				email: admin.email,

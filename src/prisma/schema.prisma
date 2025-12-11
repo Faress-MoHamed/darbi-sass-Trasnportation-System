@@ -203,9 +203,7 @@ model AccessToken {
   token            String    @unique
   refreshToken     String    @unique @map("refresh_token")
   userId           String    @map("user_id") @db.Uuid
-  tenantId         String    @map("tenant_id") @db.Uuid
   user             User      @relation(fields: [userId], references: [id])
-  tenant           Tenant    @relation("tenant_to_accessToken", fields: [tenantId], references: [id])
   createdAt        DateTime  @default(now()) @map("created_at")
   expiresAt        DateTime? @map("expires_at")
   refreshExpiresAt DateTime? @map("refresh_expires_at")
@@ -264,7 +262,6 @@ model Tenant {
   deletedAt  DateTime?  @map("deleted_at")
 
   tenantSettings        TenantSetting[]
-  users                 User[]
   roles                 Role[]
   logs                  Log[]
   drivers               Driver[]
@@ -295,7 +292,6 @@ model Tenant {
   tripCustomFields      TripCustomField[]
   bookingCustomFields   BookingCustomField[]
   routeCustomFields     RouteCustomField[]
-  accessTokens          AccessToken[]          @relation("tenant_to_accessToken")
   activityLogs ActivityLog[]
 
   @@map("tenants")
@@ -317,7 +313,6 @@ model TenantSetting {
 
 model User {
   id                 String       @id @default(uuid()) @db.Uuid
-  tenantId           String       @map("tenant_id") @db.Uuid
   role               UserRoleEnum @default(passenger)
   name               String?      @db.VarChar(150)
   email              String?      @unique @db.VarChar(150)
@@ -330,12 +325,9 @@ model User {
   createdAt          DateTime     @default(now()) @map("created_at")
   mustChangePassword Boolean      @default(true)
   deletedAt  DateTime?  @map("deleted_at")
-
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-
   logs              Log[]
   driver            Driver?
-  passenger         Passenger?
+  passenger         Passenger[]
   userRoles         UserRole[]
   bookings          Booking[]
   subscriptions     Subscription[]
@@ -349,10 +341,7 @@ model User {
   accessTokens      AccessToken[]
   otpTokens         OtpToken[]
   otps Otp[]
-  @@index([tenantId])
-  @@index([tenantId, phone])
-  @@index([tenantId, email])
-  @@index([tenantId, status])
+  @@index([email, phone,status,role])
   @@map("users")
   notificationRecipients NotificationRecipient[]
   activityLogs ActivityLog[]
@@ -414,7 +403,7 @@ model UserRole {
 
 model Log {
   id         BigInt   @id @default(autoincrement())
-  tenantId   String   @map("tenant_id") @db.Uuid
+  tenantId   String?   @map("tenant_id") @db.Uuid
   userId     String?  @map("user_id") @db.Uuid
   action     String   @db.VarChar(150)
   entityType String?  @map("entity_type") @db.VarChar(100)
@@ -423,7 +412,7 @@ model Log {
   timestamp  DateTime @default(now())
   deletedAt  DateTime?  @map("deleted_at")
   
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+    tenant Tenant? @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
   @@index([tenantId])
   @@index([userId])
@@ -596,7 +585,7 @@ model TripLog {
 model Passenger {
   id                 String              @id @default(uuid()) @db.Uuid
   tenantId           String              @map("tenant_id") @db.Uuid
-  userId             String              @unique @map("user_id") @db.Uuid
+  userId             String              @map("user_id") @db.Uuid
   subscriptionStatus SubscriptionStatus? @map("subscription_status")
   pointsBalance      Int?                @map("points_balance")
   deletedAt  DateTime?  @map("deleted_at")
@@ -606,6 +595,7 @@ model Passenger {
 
   customFieldValues PassengerCustomFieldValue[]
   @@index([tenantId])
+  @@unique([tenantId, userId])
 
   @@map("passengers")
 }
@@ -620,7 +610,7 @@ model Booking {
   ticketNumber String?       @map("ticket_number") @db.VarChar(100)
   bookingDate  DateTime?     @map("booking_date")
   paymentId    String?       @map("payment_id") @db.Uuid
-  deletedAt  DateTime?  @map("deleted_at")
+  deletedAt    DateTime?     @map("deleted_at")
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id])
   trip    Trip?    @relation(fields: [tripId], references: [id])
@@ -978,7 +968,7 @@ model MapLayer {
 
 model ActivityLog {
   id         BigInt       @id @default(autoincrement())
-  tenantId  String   @map("tenant_id") @db.Uuid   // <-- هنا المشكلة.. خليها UUID
+  tenantId  String?   @map("tenant_id") @db.Uuid   // <-- هنا المشكلة.. خليها UUID
   userId     String?  @map("user_id") @db.Uuid
   logType    ActivityLogType  // action, audit, security, system
   action     String
@@ -993,7 +983,7 @@ model ActivityLog {
   timestamp  DateTime     @default(now())
   deletedAt  DateTime?  @map("deleted_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
   
   @@index([tenantId, timestamp])

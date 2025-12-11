@@ -44,7 +44,10 @@ export class UserService {
 		);
 		return this.User.findFirst({
 			where: { phone },
-			include: { tenant: true },
+			include: {
+				passenger: true,
+				driver: true,
+			}
 		});
 	}
 

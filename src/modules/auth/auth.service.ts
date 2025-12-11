@@ -34,14 +34,12 @@ export class AuthService {
 		if (!valid) AuthErrorService.throwInvalidCredentials();
 
 		const { token, refreshToken } = await this.tokenService.createTokens(
-			user.id,
-			user.tenantId
+			user.id
 		);
 
 		await this.userService.updateLastLogin(user.id);
 
 		await this.logService.logAction({
-			tenantId: user.tenantId,
 			userId: user.id,
 			action: "USER_LOGIN",
 			entityType: "User",
@@ -78,7 +76,7 @@ export class AuthService {
 		if (user.status !== UserStatus.active)
 			AuthErrorService.throwUserNotActive();
 
-		await this.otpService.sendOtp(phone, user.tenantId, user.id);
+		await this.otpService.sendOtp(phone, user.id);
 
 		return { success: true, message: "OTP sent to your phone number" };
 	}
@@ -102,7 +100,6 @@ export class AuthService {
 				user: {
 					select: {
 						id: true,
-						tenantId: true,
 					},
 				},
 			},
@@ -113,11 +110,10 @@ export class AuthService {
 
 		// حذف كل توكنات الدخول
 		// هنا نستخدم prisma مباشرة أو ممكن تنقل ل TokenService revokeTokenByUserId لو ضفتها
-		await prisma.accessToken.deleteMany({ where: { userId: user.user?.id } });
-		await prisma.otpToken.deleteMany({ where: { userId: user.user?.id } });
+		await prisma.accessToken.deleteMany({ where: { userId: user.userId } });
+		await prisma.otpToken.deleteMany({ where: { userId: user.userId } });
 
 		await this.logService.logAction({
-			tenantId: user.user?.tenantId,
 			userId: user.userId,
 			action: "PASSWORD_RESET",
 			entityType: "User",
@@ -140,7 +136,6 @@ export class AuthService {
 		});
 		if (existingUser) {
 			await this.logService.logAction({
-				tenantId: existingUser?.tenantId,
 				userId: existingUser?.id,
 				action: "USER_LOGOUT",
 				entityType: "User",
@@ -159,7 +154,7 @@ export class AuthService {
 				400
 			);
 		}
-		this.otpService.sendOtp(phone, user.tenantId, user.id);
+		this.otpService.sendOtp(phone, user.id);
 		return {
 			success: true,
 			message: "otp sended successfully",

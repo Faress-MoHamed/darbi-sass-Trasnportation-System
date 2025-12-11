@@ -7,6 +7,7 @@ import { mergeResolvers } from "@graphql-tools/merge";
 import { stationResolvers } from "../modules/stations/graphql/stations.resolvers";
 import RoutesResolvers from "../modules/routes/graphql/resolvers/index.resolvers";
 import { DriverResolvers } from "../modules/drivers/graphql/resolver/index.resolver";
+import { bookingResolvers } from "../modules/Booking/graphql/resolvers/index.resolver";
 const resolvers = mergeResolvers([
 	tenantResolvers,
 	rbacResolvers,
@@ -14,6 +15,6 @@ const resolvers = mergeResolvers([
 	stationResolvers,
 	RoutesResolvers,
 	DriverResolvers,
-	busResolvers,
+	busResolvers,bookingResolvers
 ]);
 export default resolvers;

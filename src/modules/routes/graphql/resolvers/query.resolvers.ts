@@ -1,11 +1,10 @@
-import { safeResolver } from "../../../../helpers/safeResolver";
+import { protectedTenantResolver } from "../../../../helpers/safeResolver";
 import { RouteIdParamDto } from "../../dto/route.dto";
 import { PaginationOptionsSchema } from "../../../stations/dto/PaginationOptions.dto";
 import type { ResolverContext } from "../../../../types/ResolverTypes";
 import type { PaginationArgs } from "../../../../helpers/pagination";
 import type { RouteIdArgs, RouteWithStatusArgs } from "../../types/index.type";
 import { RoutesQueriesService } from "../../services/routesQueries.service";
-import { requireTenant } from "../../../../helpers/requireTenant";
 import { validateInput } from "../../../../helpers/validateInput";
 import type { TripStatus } from "@prisma/client";
 
@@ -13,10 +12,9 @@ export const RouteQueryResolvers = {
 	/**
 	 * Get a single route by ID
 	 */
-	getRoute: safeResolver(
+	getRoute: protectedTenantResolver(
 		async (_parent: any, args: RouteIdArgs, context: ResolverContext) => {
 			validateInput(RouteIdParamDto, { routeId: args.routeId });
-			requireTenant(context);
 
 			const routeService = new RoutesQueriesService(context.prisma);
 			return await routeService.getRouteById(args.routeId);
@@ -26,7 +24,7 @@ export const RouteQueryResolvers = {
 	/**
 	 * Get all routes with pagination
 	 */
-	getRoutes: safeResolver(
+	getRoutes: protectedTenantResolver(
 		async (
 			_parent: any,
 			args: { meta: PaginationArgs },
@@ -45,7 +43,7 @@ export const RouteQueryResolvers = {
 	/**
 	 * Get route with its trips (optionally filtered by status)
 	 */
-	getRouteWithTrips: safeResolver(
+	getRouteWithTrips: protectedTenantResolver(
 		async (
 			_parent: any,
 			args: RouteWithStatusArgs,

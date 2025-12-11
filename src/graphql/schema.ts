@@ -7,7 +7,7 @@ import { driverTypeDefs } from "../modules/drivers/graphql/typedef";
 import { busTypeDefs } from "../modules/buses/graphql/typedefs/index.schema";
 import { mergeTypeDefs } from "@graphql-tools/merge";
 import { userTypeDefs } from "../modules/users/graphql/index.typedef";
-import { BookingTypeDefs } from "../modules/Booking/graphql/index.typedef";
+import { bookingTypeDefs } from "../modules/Booking/graphql/typedefs/index.typedef";
 import { TripTypeDefs } from "../modules/Trip/graphql/index.typedef";
 
 const typeDefs = mergeTypeDefs([
@@ -17,11 +17,11 @@ const typeDefs = mergeTypeDefs([
 	stationTypeDef,
 	RouteTypeDef,
 	userTypeDefs,
-	BookingTypeDefs,
 	TripTypeDefs,
 
 	driverTypeDefs,
 	busTypeDefs,
+	bookingTypeDefs,
 ]);
 
 export default typeDefs;

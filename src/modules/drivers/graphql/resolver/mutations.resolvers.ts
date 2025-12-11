@@ -1,5 +1,8 @@
 import type { DriverStatus } from "@prisma/client";
-import { safeResolver } from "../../../../helpers/safeResolver";
+import {
+	protectedTenantResolver,
+	safeResolver,
+} from "../../../../helpers/safeResolver";
 import { DriverService } from "../../drivers.service";
 import {
 	createDriverSchema,
@@ -11,7 +14,6 @@ import {
 	updateDriverSchema,
 	type UpdateDriverInput,
 } from "../../validation/update-driver.validation";
-import { requireTenant } from "../../../../helpers/requireTenant";
 
 export const DriverMutationResolvers = {
 	Mutation: {
@@ -19,7 +21,7 @@ export const DriverMutationResolvers = {
 	},
 	DriverMutation: {
 		// Create a new driver
-		CuDriver: safeResolver(
+		CuDriver: protectedTenantResolver(
 			async (
 				_: any,
 				{
@@ -28,7 +30,6 @@ export const DriverMutationResolvers = {
 				}: { input: CreateDriverInput | UpdateDriverInput; id?: string },
 				context
 			) => {
-				await requireTenant(context);
 				// Validate input
 				const service = new DriverService(context.prisma);
 				if (!context.tenant?.tenantId) {
@@ -52,22 +53,20 @@ export const DriverMutationResolvers = {
 			}
 		),
 		// Delete a driver
-		deleteDriver: safeResolver(
+		deleteDriver: protectedTenantResolver(
 			async (_: any, { id }: { id: string }, context) => {
-				await requireTenant(context);
 				const service = new DriverService(context.prisma);
 				return service.deleteDriver(id);
 			}
 		),
 
 		// Update driver status
-		updateDriverStatus: safeResolver(
+		updateDriverStatus: protectedTenantResolver(
 			async (
 				_: any,
 				{ id, status }: { id: string; status: DriverStatus },
 				context
 			) => {
-				await requireTenant(context);
 				const service = new DriverService(context.prisma);
 				return service.updateDriverStatus(id, status);
 			}

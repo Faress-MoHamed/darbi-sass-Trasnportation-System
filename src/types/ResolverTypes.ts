@@ -27,7 +27,10 @@ export type ResolverFn<
 	context: Context,
 	info: GraphQLResolveInfo
 ) => Promise<Result> | Result;
-
+export type TenantContext = ResolverContext & {
+	tenant: NonNullable<ResolverContext["tenant"]>;
+	tenantId: string;
+};
 export type QueryResolver<Args = any, Result = any, Context = any> = ResolverFn<
 	{},
 	Args,

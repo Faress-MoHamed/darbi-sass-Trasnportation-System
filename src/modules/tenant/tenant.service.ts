@@ -37,6 +37,16 @@ export class TenantService {
 		const data = await paginate(this.prisma.tenant, args?.meta);
 		return data ?? [];
 	};
+	getOneTenant = async (id?: string) => {
+		if (!id) {
+			return null;
+		}
+		const tenant = await this.prisma.tenant.findFirst({
+			where: { id },
+		});
+
+		return tenant;
+	};
 
 	CuTenant = async (Payload: CreateTenantPayload) => {
 		const { tenantData } = createTenantInput(Payload);
@@ -65,7 +75,6 @@ export class TenantService {
 			await this.userService.createUser(
 				{
 					...Payload.user,
-					tenantId: NewTenant.id,
 					role: "admin",
 					status: "pending",
 					password: Payload.user.password || null,

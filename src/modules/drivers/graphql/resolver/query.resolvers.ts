@@ -1,7 +1,6 @@
 import { createResolvers } from "../../../../helpers/createResolver";
 import type { PaginationArgs } from "../../../../helpers/pagination";
-import { requireTenant } from "../../../../helpers/requireTenant";
-import { safeResolver } from "../../../../helpers/safeResolver";
+import { protectedTenantResolver } from "../../../../helpers/safeResolver";
 import { validateInput } from "../../../../helpers/validateInput";
 import { PaginationOptionsSchema } from "../../../stations/dto/PaginationOptions.dto";
 import { DriverService } from "../../drivers.service";
@@ -12,13 +11,14 @@ export const DriverQueryResolvers = createResolvers({
 		drivers: () => ({}),
 	},
 	DriverQueries: {
-		driver: safeResolver(async (_: any, { id }: { id: string }, context) => {
-			await requireTenant(context);
-			const service = new DriverService(context.prisma);
-			return service.getDriverById(id);
-		}),
+		driver: protectedTenantResolver(
+			async (_: any, { id }: { id: string }, context) => {
+				const service = new DriverService(context.prisma);
+				return service.getDriverById(id);
+			}
+		),
 
-		drivers: safeResolver(
+		drivers: protectedTenantResolver(
 			async (
 				_: any,
 				{
@@ -32,13 +32,13 @@ export const DriverQueryResolvers = createResolvers({
 					PaginationOptionsSchema,
 					pagination ?? {}
 				);
-				await requireTenant(context);
+
 				const service = new DriverService(context.prisma);
 				return service.getAllDrivers(paginationData);
 			}
 		),
 
-		// getDriverTripHistory: safeResolver(
+		// getDriverTripHistory: protectedTenantResolver(
 		// 	async (
 		// 		_: any,
 		// 		{
@@ -51,7 +51,6 @@ export const DriverQueryResolvers = createResolvers({
 		// 			PaginationOptionsSchema,
 		// 			filters?.meta ?? {}
 		// 		);
-		// 		await requireTenant(context);
 		// 		const service = new DriverService(context.prisma);
 		// 		return service.getDriverTripHistory(driverId, {
 		// 			...filters,

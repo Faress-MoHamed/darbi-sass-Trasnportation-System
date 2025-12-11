@@ -116,7 +116,6 @@ export class DriverService {
 				console.log({ validatedData });
 				const user = await this.userService.createUser(
 					{
-						tenantId,
 						phone: validatedData.phone,
 						email: validatedData.email || null,
 						name: validatedData.name,
