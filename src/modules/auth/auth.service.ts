@@ -3,11 +3,17 @@ import { OtpService } from "./otp.service";
 import { AuthErrorService } from "./authError.service";
 import { LogService } from "../../services/log.service";
 import { UserService } from "../users/users.services";
-import { PrismaClient, UserStatus } from "@prisma/client";
+import {
+	PrismaClient,
+	UserStatus,
+	type Prisma,
+	type UserRoleEnum,
+} from "@prisma/client";
 import { AppError } from "../../errors/AppError";
 import { BadRequestError } from "../../errors/BadRequestError";
 import { prisma } from "../../lib/prisma";
 import { checkObjectInModelExistOrFail } from "../../helpers/checkObjectInModelExist";
+import type { RegisterDto } from "./validation/registerValidation";
 
 export class AuthService {
 	private userService = new UserService();
@@ -39,13 +45,6 @@ export class AuthService {
 
 		await this.userService.updateLastLogin(user.id);
 
-		await this.logService.logAction({
-			userId: user.id,
-			action: "USER_LOGIN",
-			entityType: "User",
-			entityId: user.id,
-		});
-
 		return {
 			token,
 			refreshToken,
@@ -59,7 +58,33 @@ export class AuthService {
 			mustChangePassword: user.mustChangePassword,
 		};
 	}
-
+	async Register(
+		input: RegisterDto & { role: UserRoleEnum },
+		prismaTx: PrismaClient | Prisma.TransactionClient,
+		tenantId?: string
+	) {
+		let PrismaModule = prismaTx || prisma;
+		const { name, phone, password, email } = input;
+		const user = await this.userService.createUser(
+			{
+				name,
+				phone,
+				password,
+				email: email || null,
+				role: input.role || "passenger",
+				status: "pending",
+				phoneVerified: false,
+				mustChangePassword: false,
+			},
+			PrismaModule.user,
+			tenantId
+		);
+		await this.otpService.sendOtp(phone, user.id, prismaTx);
+		return {
+			success: true,
+			message: "User registered successfully. OTP sent to phone.",
+		};
+	}
 	async refreshToken(refreshToken: string) {
 		return this.tokenService.refreshToken(refreshToken);
 	}
@@ -89,7 +114,7 @@ export class AuthService {
 		if (newPassword.trim() !== ConfirmnewPassword.trim()) {
 			throw new BadRequestError();
 		}
-		const user = await prisma.otpToken.findFirst({
+		const user = await prisma.otp.findFirst({
 			where: {
 				token: {
 					equals: token,
@@ -105,44 +130,18 @@ export class AuthService {
 			},
 		});
 		if (!user) AuthErrorService.throwUserNotFound();
-		console.log({ user, newPassword });
 		await this.userService.updatePassword(user.userId, newPassword);
 
 		// حذف كل توكنات الدخول
 		// هنا نستخدم prisma مباشرة أو ممكن تنقل ل TokenService revokeTokenByUserId لو ضفتها
 		await prisma.accessToken.deleteMany({ where: { userId: user.userId } });
-		await prisma.otpToken.deleteMany({ where: { userId: user.userId } });
-
-		await this.logService.logAction({
-			userId: user.userId,
-			action: "PASSWORD_RESET",
-			entityType: "User",
-			entityId: user.userId,
-		});
+		await prisma.otp.deleteMany({ where: { userId: user.userId } });
 
 		return { success: true, message: "Password reset successfully" };
 	}
 
 	async logout(token: string) {
 		await this.tokenService.revokeToken(token);
-		const existingUser = await prisma.user.findFirst({
-			where: {
-				accessTokens: {
-					every: {
-						token,
-					},
-				},
-			},
-		});
-		if (existingUser) {
-			await this.logService.logAction({
-				userId: existingUser?.id,
-				action: "USER_LOGOUT",
-				entityType: "User",
-				entityId: "",
-			});
-		}
-
 		return { success: true, message: "Logged out successfully" };
 	}
 
@@ -161,19 +160,64 @@ export class AuthService {
 		};
 	}
 
-	async VerifyOtpFromUser(phone: string, otp: string) {
-		await this.otpService.verifyOtp(otp);
+	async resendOtp(phone: string) {
 		const user = await checkObjectInModelExistOrFail(
 			prisma.user,
 			"phone",
 			phone,
 			"user not exist"
 		);
-		const { token } = await this.tokenService.createOtpTokens(user?.id);
+		return this.otpService.resendOtp(phone, user.id);
+	}
+
+	async VerifyOtpFromUser(phone: string, otp: string) {
+		const user = await checkObjectInModelExistOrFail(
+			prisma.user,
+			"phone",
+			phone,
+			"user not exist"
+		);
+		const codeData = await this.otpService.verifyOtp(otp, user.id);
+		const { token } = await this.tokenService.createOtpTokens(codeData);
+
 		return {
 			success: true,
-			message: "otp sended is Valid",
+			message: "OTP sent is valid",
 			token,
+		};
+	}
+	async VerifyPhone(otp: string, phone: string) {
+		const Validateuser = await checkObjectInModelExistOrFail(
+			prisma.user,
+			"phone",
+			phone,
+			"user not exist"
+		);
+		const codeData = await this.otpService.verifyOtp(otp, Validateuser.id);
+		await prisma.user.update({
+			where: { id: codeData.userId },
+			data: { status: "active", mustChangePassword: false },
+		});
+		const user = await checkObjectInModelExistOrFail(
+			prisma.user,
+			"id",
+			codeData.userId,
+			"user not exist"
+		);
+		const { token, refreshToken } = await this.tokenService.createTokens(
+			codeData.userId
+		);
+		return {
+			token,
+			refreshToken,
+			user: {
+				id: user.id,
+				name: user.name,
+				email: user.email,
+				phone: user.phone,
+				role: user.role,
+			},
+			mustChangePassword: user.mustChangePassword,
 		};
 	}
 }

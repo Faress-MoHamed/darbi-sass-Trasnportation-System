@@ -1,9 +1,10 @@
 import { TwilioService } from "./twilio.service";
 import { AuthErrorService } from "./authError.service";
 import { LogService } from "../../services/log.service";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { checkObjectInModelExistOrFail } from "../../helpers/checkObjectInModelExist";
+import { AppError } from "../../errors/AppError";
 
 interface OtpStore {
 	[phone: string]: { code: string; expiresAt: Date; attempts: number };
@@ -20,10 +21,15 @@ export class OtpService {
 		return Math.floor(100000 + Math.random() * 900000).toString();
 	}
 
-	async sendOtp(phone: string, 	 userId: string) {
+	async sendOtp(
+		phone: string,
+		userId: string,
+		prismaTx?: PrismaClient | Prisma.TransactionClient
+	) {
+		const prismaModel = prismaTx || prisma;
 		const otpCode = this.generateOtpCode();
 		const expiresAt = new Date(Date.now() + this.OTP_EXPIRY_MINUTES * 60000);
-		await prisma.otp.create({
+		await prismaModel.otp.create({
 			data: {
 				userId,
 				expiresAt,
@@ -35,32 +41,29 @@ export class OtpService {
 			phone,
 			`Your verification code is: ${otpCode}. Valid for ${this.OTP_EXPIRY_MINUTES} minutes.`
 		);
-
-		await this.logService.logAction({
-			userId,
-			action: "OTP_SENT",
-			entityType: "User",
-			entityId: userId,
-		});
 	}
 
-	async verifyOtp(code: string) {
-		const otpData = await checkObjectInModelExistOrFail(
-			prisma.otp,
-			"code",
-			code,
-			"OTP not found for this phone number"
-		);
+	async resendOtp(phone: string, userId: string) {
+		await prisma.otp.deleteMany({
+			where: { userId, deletedAt: null },
+		});
+		return this.sendOtp(phone, userId);
+	}
+
+	async verifyOtp(code: string, userId: string) {
+		console.log({ userId, code });
+		const otpData = await prisma.otp.findFirst({
+			where: { userId, code, deletedAt: null },
+		});
+		if (!otpData) {
+			AuthErrorService.throwInvalidOtp();
+		}
 		if (otpData.attempts >= this.MAX_OTP_ATTEMPTS) {
 			await prisma.otp.delete({
 				where: { id: otpData.id },
 			});
 			AuthErrorService.throwMaxOtpAttemptsExceeded();
 		}
-		await prisma.otp.update({
-			where: { id: otpData.id },
-			data: { attempts: { increment: 1 } },
-		});
 
 		if (new Date() > otpData.expiresAt) {
 			await prisma.otp.delete({
@@ -70,9 +73,10 @@ export class OtpService {
 		}
 
 		if (otpData.code !== code) AuthErrorService.throwInvalidOtp();
-
-		await prisma.otp.delete({
+		await prisma.otp.update({
 			where: { id: otpData.id },
+			data: { attempts: { increment: 1 } },
 		});
+		return otpData;
 	}
 }
