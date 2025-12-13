@@ -1,10 +1,6 @@
 import { z } from "zod";
-
-export type TenantStatusEnum = "active" | "suspended" | "inactive";
-
 export const createTenantSchema = z.object({
 	name: z.string().max(150, "Name must be 150 characters or less"),
-	status: z.enum(["active", "suspended", "inactive"]).optional(), // لو هتستخدمه
 });
 
 // Infer Type
