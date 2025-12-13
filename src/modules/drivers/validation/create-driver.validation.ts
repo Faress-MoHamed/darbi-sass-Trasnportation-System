@@ -12,8 +12,6 @@ export const createDriverSchema = z.object({
 		.string()
 		.min(1, "Phone is required")
 		.max(20, "Phone must not exceed 20 characters"),
-	password: z.string().optional(),
-	confirmPassword: z.string().optional(),
 	email: z
 		.string()
 		.email("Invalid email format")
@@ -29,16 +27,6 @@ export const createDriverSchema = z.object({
 		.default("offline")
 		.optional(),
 });
-// .refine(
-// 	(data) =>
-// 		data.password === data.confirmPassword &&
-// 		data.password !== undefined &&
-// 		data.confirmPassword !== undefined,
-// 	{
-// 		message: "Passwords do not match",
-// 		path: ["confirmPassword"],
-// 	}
-// );
 
 export type CreateDriverInput = z.infer<typeof createDriverSchema>;
 

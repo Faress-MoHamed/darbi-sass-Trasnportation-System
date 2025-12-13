@@ -14,6 +14,7 @@ import {
 	updateDriverSchema,
 	type UpdateDriverInput,
 } from "../../validation/update-driver.validation";
+import { requireRole } from "../../../../helpers/requireRole";
 
 export const DriverMutationResolvers = {
 	Mutation: {
@@ -21,36 +22,53 @@ export const DriverMutationResolvers = {
 	},
 	DriverMutation: {
 		// Create a new driver
-		CuDriver: protectedTenantResolver(
-			async (
-				_: any,
-				{
-					input,
-					id,
-				}: { input: CreateDriverInput | UpdateDriverInput; id?: string },
-				context
-			) => {
-				// Validate input
-				const service = new DriverService(context.prisma);
-				if (!context.tenant?.tenantId) {
-					throw new AppError("unauthorized access", 401);
-				}
-				if (id) {
-					const { data: validatedData, error } =
-						updateDriverSchema.safeParse(input);
-					if (error) {
-						throw new ValidationError(error, 400);
+		CuDriver: requireRole(["Admin", "SuperAdmin"])(
+			protectedTenantResolver(
+				async (
+					_: any,
+					{
+						input,
+						id,
+					}: {
+						input: CreateDriverInput | UpdateDriverInput;
+						id?: string;
+					},
+					context
+				) => {
+					// Validate input
+					const service = new DriverService(context.prisma);
+					if (!context.tenant?.tenantId) {
+						throw new AppError("unauthorized access", 401);
 					}
-					return service.CuDriver(validatedData, context.tenant?.tenantId, id);
-				} else {
-					const { data: validatedData, error } =
-						createDriverSchema.safeParse(input);
-					if (error) {
-						throw new ValidationError(error, 400);
+					if (id) {
+						const { data: validatedData, error } = updateDriverSchema.safeParse(
+							{
+								...input,
+								tenantId: context.tenant?.tenantId,
+							}
+						);
+						if (error) {
+							throw new ValidationError(error, 400);
+						}
+						return service.CuDriver(
+							validatedData,
+							context.tenant?.tenantId,
+							id
+						);
+					} else {
+						const { data: validatedData, error } = createDriverSchema.safeParse(
+							{
+								...input,
+								tenantId: context.tenant?.tenantId,
+							}
+						);
+						if (error) {
+							throw new ValidationError(error, 400);
+						}
+						return service.CuDriver(validatedData, context.tenant?.tenantId);
 					}
-					return service.CuDriver(validatedData, context.tenant?.tenantId);
 				}
-			}
+			)
 		),
 		// Delete a driver
 		deleteDriver: protectedTenantResolver(
@@ -71,5 +89,7 @@ export const DriverMutationResolvers = {
 				return service.updateDriverStatus(id, status);
 			}
 		),
+
+		
 	},
 };

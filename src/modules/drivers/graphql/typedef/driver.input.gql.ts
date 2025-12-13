@@ -4,7 +4,6 @@ export const driverInputs = gql`
 	input CuDriverInput {
 		name: String
 		phone: String
-		password: String
 		email: String
 		licenseNumber: String
 		status: DriverStatus

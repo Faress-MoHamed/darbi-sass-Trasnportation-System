@@ -54,7 +54,6 @@ export class DriverService {
 			);
 		}
 	}
-
 	// Creates or updates a driver and related user
 	async CuDriver(
 		validatedData: CreateDriverInput | UpdateDriverInput,
@@ -92,7 +91,6 @@ export class DriverService {
 						name: validatedData.name,
 						phone: validatedData.phone,
 						email: validatedData.email,
-						password: validatedData.password,
 					},
 					tx.user
 				);
@@ -113,19 +111,17 @@ export class DriverService {
 			// Create user + driver in a single transaction
 			const result = await this.prisma.$transaction(async (tx) => {
 				// Create user
-				console.log({ validatedData });
 				const user = await this.userService.createUser(
 					{
 						phone: validatedData.phone,
 						email: validatedData.email || null,
 						name: validatedData.name,
-						password: validatedData.password || null,
-						role: "driver",
+						password: null,
 						status: "active",
-						deletedAt: null,
+						phoneVerified: false,
+						role: null,
 					},
 					tx.user,
-					tx.tenant
 				);
 
 				// Create Driver
