@@ -1,11 +1,10 @@
-import {  TenantStatus } from "@prisma/client";
 import { z } from "zod";
 
-export const TenantStatusEnum = z.nativeEnum(TenantStatus);
+export type TenantStatusEnum = "active" | "suspended" | "inactive";
 
 export const createTenantSchema = z.object({
 	name: z.string().max(150, "Name must be 150 characters or less"),
-	status: TenantStatusEnum.optional(), // لو هتستخدمه
+	status: z.enum(["active", "suspended", "inactive"]).optional(), // لو هتستخدمه
 });
 
 // Infer Type
