@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaPostgresAdapter } from "@prisma/adapter-ppg";
 import { PrismaClient } from "@prisma/client";
-import { AppError } from "../errors/AppError.ts";
+import { AppError } from "../errors/AppError";
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 const connectionString = `postgres://avnadmin:AVNS_-wSBsbg-x5KZud7HU9M@pg-320ef1ad-fareess-466d.k.aivencloud.com:22508/defaultdb?sslmode=verify-full&sslrootcert=certs/ca.pem`;

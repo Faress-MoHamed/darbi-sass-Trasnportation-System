@@ -1,10 +1,10 @@
 import { PrismaClient, UserRoleEnum, RoleType } from "@prisma/client";
 import * as bcrypt from "bcrypt";
-import { prisma } from "../../lib/prisma.ts";
+import { prisma } from "../../lib/prisma";
 import {
 	getAllPermissions,
 	PERMISSIONS,
-} from "../../helpers/permissionhelper.ts";
+} from "../../helpers/permissionhelper";
 
 const SALT_ROUNDS = 12;
 

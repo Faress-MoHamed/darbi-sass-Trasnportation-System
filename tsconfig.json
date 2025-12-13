@@ -11,9 +11,7 @@
 		"forceConsistentCasingInFileNames": true,
 		"sourceMap": true,
 		"incremental": true,
-		"allowArbitraryExtensions": true,
-		"allowImportingTsExtensions": true,
-		"noEmit": true
+		"allowArbitraryExtensions": true
 	},
 	"include": ["global.d.ts", "**/*.graphql", "src/**/*", "src/api"]
 }
