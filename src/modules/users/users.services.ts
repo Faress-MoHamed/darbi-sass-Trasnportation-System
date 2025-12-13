@@ -47,7 +47,22 @@ export class UserService {
 			include: {
 				passenger: true,
 				driver: true,
-			}
+			},
+		});
+	}
+	async getUserById(userId: string) {
+		await checkObjectInModelExistOrFail(
+			this.User,
+			"id",
+			userId,
+			"User not found"
+		);
+		return this.User.findFirst({
+			where: { id: userId },
+			include: {
+				passenger: true,
+				driver: true,
+			},
 		});
 	}
 
@@ -62,12 +77,16 @@ export class UserService {
 			| "mustChangePassword"
 			| "lastLogin"
 			| "password"
-		> & { password: string | null },
-		Model?: any,
-		TenantModel?: any
+			| "deletedAt"
+		> & {
+			password: string | null;
+			tenantId?: string;
+			mustChangePassword?: boolean;
+		},
+		Model?: PrismaClient["user"],
+		tenantId?: string
 	) {
 		const PrismaModel = Model ? Model : this.User;
-		const TenantPrismaModel = TenantModel ? TenantModel : this.Tenant;
 
 		const { data: CleanedPayload, error } = createUserSchema.safeParse(data);
 		if (error) {
@@ -86,45 +105,45 @@ export class UserService {
 			throw new Error("User with this phone or email already exists");
 		}
 
-		const tenant = await TenantPrismaModel.findUnique({
-			where: { id: CleanedPayload.tenantId },
-		});
+		const passwordHash = CleanedPayload.password
+			? await this.hashPassword(CleanedPayload.password)
+			: null;
+		let User: User;
 
-		if (!tenant) AuthErrorService.throwTenantNotFound();
-		if (
-			tenant.status !== TenantStatus.active &&
-			CleanedPayload.role !== "admin"
-		)
-			AuthErrorService.throwTenantNotActive();
-		let passwordHash;
-		if (CleanedPayload.password) {
-			passwordHash = await this.hashPassword(CleanedPayload.password);
-		}
+		if (!CleanedPayload.role) {
+			return (User = await this.prisma.$transaction(async (tx) => {
+				const TXuser = await tx.user.create({
+					data: {
+						phone: CleanedPayload.phone,
+						email: CleanedPayload.email,
+						name: CleanedPayload.name,
+						password: passwordHash,
+						status: TenantStatus.active,
+						mustChangePassword: true,
+					},
+				});
+				await tx.passenger.create({
+					data: {
+						tenantId,
+						userId: TXuser.id,
+					},
+				});
 
-		const user = await PrismaModel.create({
-			data: {
-				tenantId: CleanedPayload.tenantId,
-				phone: CleanedPayload.phone,
-				email: CleanedPayload.email,
-				name: CleanedPayload.name,
-				password: passwordHash,
-				role: CleanedPayload.role || UserRoleEnum.passenger,
-				status: TenantStatus.active,
-				mustChangePassword: true,
-			},
-		});
-
-		if (user.role === UserRoleEnum.passenger) {
-			await this.Passenger.create({
+				return TXuser;
+			}));
+		} else {
+			return (User = await PrismaModel.create({
 				data: {
-					tenantId: CleanedPayload.tenantId,
-					userId: user.id,
-					pointsBalance: 0,
+					phone: CleanedPayload.phone,
+					email: CleanedPayload.email,
+					name: CleanedPayload.name,
+					password: passwordHash,
+					role: CleanedPayload.role,
+					status: TenantStatus.active,
+					mustChangePassword: true,
 				},
-			});
+			}));
 		}
-
-		return user;
 	}
 
 	async updateLastLogin(userId: string) {

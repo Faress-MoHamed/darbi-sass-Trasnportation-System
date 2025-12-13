@@ -5,13 +5,7 @@ import { z } from "zod";
 // Base Enums
 // ============================================================================
 
-export const UserRoleEnum = z.enum([
-	"SuperAdmin",
-	"admin",
-	"supervisor",
-	"driver",
-	"passenger",
-]);
+export const UserRoleEnum = z.enum(["SuperAdmin", "admin"]);
 export const UserStatus = z.enum(["active", "banned", "pending"]);
 export const DriverStatus = z.enum(["available", "unavailable", "offline"]);
 export const SubscriptionStatus = z.enum(["active", "expired", "cancelled"]);
@@ -87,8 +81,7 @@ export const createCustomFieldValidator = (
 // ============================================================================
 
 export const createUserBaseSchema = z.object({
-	tenantId: z.string(),
-	role: UserRoleEnum.default("passenger"),
+	role: UserRoleEnum.nullable(),
 	name: z.string().max(150),
 	email: z.string().email().max(150).nullable(),
 	phone: z.string().max(20),
