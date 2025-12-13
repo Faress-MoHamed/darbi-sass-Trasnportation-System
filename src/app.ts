@@ -60,6 +60,6 @@ export default async function createServer() {
 	);
 
 	return new Promise<string>((resolve) => {
-		httpServer.listen(8081, () => resolve("http://localhost:8081/graphql"));
+		httpServer.listen(8080, () => resolve("http://localhost:8080/graphql"));
 	});
 }
