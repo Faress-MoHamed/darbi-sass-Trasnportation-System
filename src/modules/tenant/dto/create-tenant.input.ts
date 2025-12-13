@@ -15,8 +15,8 @@ export type CreateTenantPayload = Omit<
 	"id" | "createdAt" | "updatedAt"
 > & {
 	id?: string;
-
-	user: User;
+	
+	user: User & { password: string ,name?:string};
 };
 
 export function createTenantInput(args: CreateTenantPayload): CreateTenant {
@@ -30,9 +30,9 @@ export function createTenantInput(args: CreateTenantPayload): CreateTenant {
 		tenantData: {
 			id: args?.id,
 			name: tenantData.name,
-			planType: "basic",
 			status: "suspended",
 			deletedAt: null,
+			accessPolicy: "open",
 		},
 
 		user: args.user as any,

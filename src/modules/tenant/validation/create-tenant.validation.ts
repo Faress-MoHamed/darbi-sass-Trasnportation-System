@@ -1,6 +1,5 @@
-import { PlanType, TenantStatus } from "@prisma/client";
+import {  TenantStatus } from "@prisma/client";
 import { z } from "zod";
-export const PlanTypeEnum = z.enum(PlanType);
 export const TenantStatusEnum = z.enum(TenantStatus);
 export const createTenantSchema = z.object({
 	name: z.string().max(150, "Name must be 150 characters or less"),

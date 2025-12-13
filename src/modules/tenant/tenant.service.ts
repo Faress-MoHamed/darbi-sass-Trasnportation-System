@@ -1,105 +1,106 @@
-import { PrismaClient, type Tenant } from "@prisma/client";
-import { paginate, type PaginationArgs } from "../../helpers/pagination";
+import { TenantRepository } from "./Tenant.repositry";
 import {
 	createTenantInput,
-	type CreateTenant,
 	type CreateTenantPayload,
 } from "./dto/create-tenant.input";
 import { AppError } from "../../errors/AppError";
-import { UserService } from "../users/users.services";
-import { createUserSchema } from "../users/validations/create-user.validation";
-import { prisma } from "../../lib/prisma";
-type argsOfGetTenants = {
-	id?: string;
-	meta?: PaginationArgs;
-};
+import { AuthService } from "../auth/auth.service";
+import type { Tenant, RoleType } from "@prisma/client";
+import { seedRoles } from "../../prisma/seeders/superAdmins.seeder";
+
 export class TenantService {
-	private prisma = prisma;
+	private tenantRepo = new TenantRepository();
+	private authService = new AuthService();
 
-	get Tenants() {
-		return this.prisma.tenant;
-	}
-
-	get Prisma() {
-		return this.prisma;
-	}
-	private userService = new UserService();
-	getTenants = async (args: argsOfGetTenants) => {
+	getTenants = async (args: { id?: string; meta?: any }) => {
 		if (args?.id) {
-			const tenant = await this.prisma.tenant.findFirst({
-				where: { id: args.id },
-			});
-
-			// Always return array
+			const tenant = await this.tenantRepo.findFirstById(args.id);
 			return tenant ? [tenant] : [];
 		}
-
-		const data = await paginate(this.prisma.tenant, args?.meta);
-		return data ?? [];
+		const tenants = await this.tenantRepo.getTenantsWithPagination(args.meta);
+		return tenants ?? [];
 	};
-	getOneTenant = async (id?: string) => {
-		if (!id) {
-			return null;
-		}
-		const tenant = await this.prisma.tenant.findFirst({
-			where: { id },
-		});
 
+	getOneTenant = async (id?: string): Promise<Tenant | null> => {
+		if (!id) return null;
+		return this.tenantRepo.findFirstById(id);
+	};
+
+	CuTenant = async (payload: CreateTenantPayload) => {
+		const { tenantData } = createTenantInput(payload);
+
+		const tenant =  await this.tenantRepo.prisma.$transaction(async (tx) => {
+			if (tenantData?.id) {
+				return await this.tenantRepo.updateTenant(
+					tenantData.id,
+					tenantData,
+					tx
+				);
+			} else {
+				// Check tenant existence
+				const existTenant = await this.tenantRepo.findFirstByName(
+					tenantData.name
+				);
+				if (existTenant) {
+					throw new AppError("Tenant With This Name Already Exists", 409);
+				}
+
+				// Create tenant suspended
+				const tenantResult = await this.tenantRepo.createTenant(
+					{ ...tenantData, status: "suspended" },
+					tx
+				);
+				// Admin user handling
+				const adminUser = await tx.user.findFirst({
+					where: {
+						phone: payload.user.phone,
+					},
+				});
+
+				if (adminUser) {
+					const userRole = await tx.userRole.findFirst({
+						where: {
+							userId: adminUser.id,
+							tenantId: tenantResult.id,
+						},
+						select: { role: true },
+					});
+					await tx.userRole.create({
+						data: {
+							userId: adminUser.id,
+							tenantId: tenantResult.id,
+							roleId: (userRole?.role.type as RoleType) || "super_admin",
+						},
+					});
+				} else {
+					await this.authService.Register(
+						{
+							...payload.user,
+							role: "admin",
+							password: payload.user.password,
+							confirmPassword: payload.user.password,
+							phone: payload.user.phone,
+							email: payload.user.email || null,
+							name: payload.user.name,
+							
+						},
+						tx,
+						tenantResult.id
+					);
+				}
+			}
+		});
+		if (!payload.id) {
+			await seedRoles(tenant!.id);
+		}
 		return tenant;
 	};
 
-	CuTenant = async (Payload: CreateTenantPayload) => {
-		const { tenantData } = createTenantInput(Payload);
-
-		return await this.Prisma.$transaction(async (tx) => {
-			if (tenantData?.id) {
-				return await tx.tenant.update({
-					where: { id: tenantData.id },
-					data: tenantData,
-				});
-			}
-
-			// Check tenant existence
-			const existTenant = await tx.tenant.findFirst({
-				where: { name: tenantData.name },
-			});
-
-			if (existTenant) {
-				throw new AppError("this tenant already exists", 409);
-			}
-
-			// 1. Create Tenant
-			const NewTenant = await tx.tenant.create({
-				data: { ...tenantData },
-			});
-			await this.userService.createUser(
-				{
-					...Payload.user,
-					role: "admin",
-					status: "pending",
-					password: Payload.user.password || null,
-				},
-				tx.user,
-				tx.tenant
-			);
-
-			return NewTenant;
-		});
+	deleteTenant = async (id: string) => {
+		await this.tenantRepo.deleteTenant(id);
 	};
 
-	deleteTenants = async (id: string) => {
-		await this.prisma.tenant.delete({
-			where: { id },
-		});
-	};
-
-	//update tenant Status for SuperAdmins only (owners of application)
-	UpdateTenantStatus = async (id: string, status: Tenant["status"]) => {
-		await this.prisma.tenant.update({
-			where: { id },
-			data: {
-				status,
-			},
-		});
+	updateTenantStatus = async (id: string, status: Tenant["status"]) => {
+		await this.tenantRepo.updateTenant(id, { status });
 	};
 }

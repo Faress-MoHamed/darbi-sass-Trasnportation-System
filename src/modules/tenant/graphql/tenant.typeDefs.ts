@@ -2,17 +2,16 @@ import gql from "graphql-tag";
 
 // tenant.typeDefs.ts
 export const tenantTypeDefs = gql`
-	enum PlanType {
-		basic
-		pro
-		enterprise
-	}
 
 	enum TenantStatus {
 		active
 		suspended
 		inactive
 	}
+	enum passenger_access_policy {
+open
+restricted
+}
 	enum UserRole {
 		admin
 		supervisor
@@ -28,7 +27,6 @@ export const tenantTypeDefs = gql`
 	type Tenant {
 		id: ID!
 		name: String!
-		planType: PlanType!
 		status: TenantStatus!
 		createdAt: String!
 	}
@@ -59,6 +57,7 @@ export const tenantTypeDefs = gql`
 	input TenantInput {
 		id: ID
 		name: String!
+		accessPolicy:passenger_access_policy
 		user: TenantUserInput!
 	}
 
