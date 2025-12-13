@@ -9,7 +9,7 @@ export const RBACTypeDef = gql`
 	}
 
 	type Role {
-		id: Int!
+		id: String!
 		tenantId: String!
 		name: String!
 		description: String
@@ -17,13 +17,13 @@ export const RBACTypeDef = gql`
 	}
 
 	type RolePermission {
-		roleId: Int!
+		roleId: String!
 		permissionId: Int!
 		permission: Permission!
 	}
 
 	type RoleWithPermissions {
-		id: Int!
+		id: String!
 		name: String!
 		description: String
 		permissions: [Permission!]!
@@ -48,7 +48,7 @@ export const RBACTypeDef = gql`
 
 	input AssignRoleToUserInput {
 		userId: String!
-		roleIds: [Int!]!
+		roleIds: [String!]!
 	}
 
 	type PermissionsQuery {
@@ -62,7 +62,7 @@ export const RBACTypeDef = gql`
 		roles: [RoleWithPermissions!]!
 
 		# Get role by ID with permissions
-		role(id: Int!): RoleWithPermissions
+		role(id: String!): RoleWithPermissions
 
 		# Get user roles
 		userRoles(userId: String!): [Role!]!
@@ -80,12 +80,12 @@ export const RBACTypeDef = gql`
 		deletePermission(id: Int!): Boolean!
 
 		# Role Management
-		CuRole(input: CreateRoleInput!,id: Int): RoleWithPermissions!
-		deleteRole(id: Int!): Boolean!
+		CuRole(input: CreateRoleInput!,id: String): RoleWithPermissions!
+		deleteRole(id: String!): Boolean!
 
 		# Assign permissions to role
 		assignPermissionsToRole(
-			roleId: Int!
+			roleId: String!
 			permissionIds: [Int!]!
 		): RoleWithPermissions!
 
@@ -93,7 +93,7 @@ export const RBACTypeDef = gql`
 		assignRolesToUser(input: AssignRoleToUserInput!): Boolean!
 
 		# Remove role from user
-		removeRoleFromUser(userId: String!, roleId: Int!): Boolean!
+		removeRoleFromUser(userId: String!, roleId: String!): Boolean!
 	}
 
 	type Mutation {

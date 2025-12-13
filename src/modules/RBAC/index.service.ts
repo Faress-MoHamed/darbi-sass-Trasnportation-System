@@ -65,7 +65,7 @@ export class RBACService {
 		});
 	}
 
-	async getRoleById(id: number) {
+	async getRoleById(id: string) {
 		return this.prisma.role.findUnique({
 			where: { id },
 			include: {
@@ -87,6 +87,7 @@ export class RBACService {
 		return this.prisma.role.create({
 			data: {
 				tenantId,
+				type: "custom",
 				name,
 				description,
 				rolePermissions: {
@@ -106,7 +107,7 @@ export class RBACService {
 	}
 
 	async updateRole(
-		id: number,
+		id: string,
 		name?: string,
 		description?: string,
 		permissionIds?: number[]
@@ -144,7 +145,7 @@ export class RBACService {
 		});
 	}
 
-	async deleteRole(id: number): Promise<boolean> {
+	async deleteRole(id: string): Promise<boolean> {
 		await this.prisma.role.delete({
 			where: { id },
 		});
@@ -153,7 +154,7 @@ export class RBACService {
 
 	// ========== Role-Permission Assignment ==========
 
-	async assignPermissionsToRole(roleId: number, permissionIds: number[]) {
+	async assignPermissionsToRole(roleId: string, permissionIds: number[]) {
 		// Delete all existing permissions for this role
 		await this.prisma.rolePermission.deleteMany({
 			where: { roleId },
@@ -174,7 +175,7 @@ export class RBACService {
 
 	async assignRolesToUser(
 		userId: string,
-		roleIds: number[],
+		roleIds: string[],
 		context: ResolverContext
 	): Promise<boolean> {
 		await CheckIfUserExist(userId);
@@ -195,7 +196,7 @@ export class RBACService {
 		return true;
 	}
 
-	async removeRoleFromUser(userId: string, roleId: number): Promise<boolean> {
+	async removeRoleFromUser(userId: string, roleId: string): Promise<boolean> {
 		await CheckIfUserExist(userId);
 		await this.prisma.userRole.delete({
 			where: {

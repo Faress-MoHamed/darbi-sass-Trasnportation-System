@@ -43,7 +43,7 @@ export const rbacResolvers = createResolvers({
 			}));
 		}),
 
-		role: safeResolver(async (_: any, { id }: { id: number }, context) => {
+		role: safeResolver(async (_: any, { id }: { id: string }, context) => {
 			const role = await new RBACService(context.prisma).getRoleById(id);
 			if (!role) return null;
 
@@ -110,7 +110,7 @@ export const rbacResolvers = createResolvers({
 			safeResolver(
 				async (
 					_: any,
-					{ input, id }: { input: CreateRoleDTO; id?: number },
+					{ input, id }: { input: CreateRoleDTO; id?: string },
 					context
 				) => {
 					if (id) {
@@ -146,7 +146,7 @@ export const rbacResolvers = createResolvers({
 		),
 
 		deleteRole: requirePermission("roles.delete")(
-			safeResolver(async (_: any, { id }: { id: number }, context) =>
+			safeResolver(async (_: any, { id }: { id: string }, context) =>
 				new RBACService(context.prisma).deleteRole(id)
 			)
 		),
@@ -158,7 +158,7 @@ export const rbacResolvers = createResolvers({
 					{
 						roleId,
 						permissionIds,
-					}: { roleId: number; permissionIds: number[] },
+					}: { roleId: string; permissionIds: number[] },
 					context
 				) => {
 					const role = await new RBACService(
@@ -190,7 +190,7 @@ export const rbacResolvers = createResolvers({
 			safeResolver(
 				async (
 					_: any,
-					{ userId, roleId }: { userId: string; roleId: number },
+					{ userId, roleId }: { userId: string; roleId: string },
 					context
 				) => new RBACService(context.prisma).removeRoleFromUser(userId, roleId)
 			)
