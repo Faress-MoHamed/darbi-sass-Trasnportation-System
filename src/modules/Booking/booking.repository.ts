@@ -2,7 +2,7 @@ import { PrismaClient, BookingStatus, Prisma } from "@prisma/client";
 
 interface FindManyParams {
 	tenantId: string;
-	userId?: string;
+	passengerId?: string;
 	tripId?: string;
 	status?: BookingStatus;
 	startDate?: Date;
@@ -18,7 +18,7 @@ export class BookingRepository {
 		return this.prisma.booking.create({
 			data,
 			include: {
-				user: true,
+				passenger: true,
 				trip: {
 					include: {
 						route: true,
@@ -29,15 +29,15 @@ export class BookingRepository {
 		});
 	}
 
-	async findById(id: string, tenantId: string) {
+	async findById(id: string, passengerId?: string) {
 		return this.prisma.booking.findFirst({
 			where: {
 				id,
-				tenantId,
+				passengerId,
 				deletedAt: null,
 			},
 			include: {
-				user: true,
+				passenger: true,
 				trip: {
 					include: {
 						route: true,
@@ -63,7 +63,7 @@ export class BookingRepository {
 				deletedAt: null,
 			},
 			include: {
-				user: true,
+				passenger: true,
 				trip: {
 					include: {
 						route: true,
@@ -75,13 +75,13 @@ export class BookingRepository {
 	}
 
 	async findMany(params: FindManyParams) {
-		const { tenantId, userId, tripId, status, startDate, endDate, skip, take } =
+		const { tenantId, passengerId, tripId, status, startDate, endDate, skip, take } =
 			params;
 
 		const where: Prisma.BookingWhereInput = {
 			tenantId,
 			deletedAt: null,
-			...(userId && { userId }),
+			...(passengerId && { passengerId }),
 			...(tripId && { tripId }),
 			...(status && { status }),
 			...(startDate &&
@@ -100,7 +100,7 @@ export class BookingRepository {
 				take,
 				orderBy: { bookingDate: "desc" },
 				include: {
-					user: true,
+					passenger: true,
 					trip: {
 						include: {
 							route: true,
@@ -123,7 +123,7 @@ export class BookingRepository {
 				...data,
 			},
 			include: {
-				user: true,
+				passenger: true,
 				trip: true,
 				payment: true,
 			},
@@ -137,13 +137,13 @@ export class BookingRepository {
 	}
 
 	async hasDuplicateBooking(
-		userId: string,
+		passengerId: string,
 		tripId: string,
 		tenantId: string
 	): Promise<boolean> {
 		const count = await this.prisma.booking.count({
 			where: {
-				userId,
+				passengerId,
 				tripId,
 				tenantId,
 				status: {
@@ -226,8 +226,8 @@ export class BookingRepository {
 	}
 
 	async getUserBookings(
-		userId: string,
-		tenantId: string,
+		passengerId: string,
+		tenantId?: string,
 		params?: {
 			status?: BookingStatus;
 			skip?: number;
@@ -238,7 +238,7 @@ export class BookingRepository {
 
 		return this.prisma.booking.findMany({
 			where: {
-				userId,
+				passengerId,
 				tenantId,
 				...(status && { status }),
 				deletedAt: null,
@@ -259,13 +259,13 @@ export class BookingRepository {
 	}
 
 	async getUpcomingBookings(
-		userId: string,
+		passengerId: string,
 		tenantId: string,
 		limit: number = 5
 	) {
 		return this.prisma.booking.findMany({
 			where: {
-				userId,
+				passengerId,
 				tenantId,
 				status: "confirmed",
 				trip: {

@@ -43,13 +43,13 @@ export class PaymentService {
 
 		const paymentMethod = await this.getPaymentMethod(
 			paymentMethodId,
-			booking.userId!,
+			booking.passengerId!,
 			tenantId
 		);
 
 		const payment = await this.createPaymentRecord(
 			tenantId,
-			booking.userId!,
+			booking.passengerId!,
 			bookingId,
 			amount,
 			paymentMethod
@@ -67,7 +67,7 @@ export class PaymentService {
 					paymentResult.transactionId,
 					bookingId,
 					tenantId,
-					booking.userId!,
+					booking.passengerId!,
 					amount
 				);
 

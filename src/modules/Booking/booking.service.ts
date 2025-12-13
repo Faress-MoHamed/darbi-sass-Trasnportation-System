@@ -4,7 +4,7 @@ import { AppError } from "../../errors/AppError";
 
 interface CreateBookingDTO {
 	tenantId: string;
-	userId: string;
+	passengerId: string;
 	tripId: string;
 	seatNumber?: string;
 	paymentMethodId?: string;
@@ -13,7 +13,7 @@ interface CreateBookingDTO {
 
 interface BookingSearchParams {
 	tenantId: string;
-	userId?: string;
+	passengerId?: string;
 	tripId?: string;
 	status?: BookingStatus;
 	startDate?: Date;
@@ -34,10 +34,10 @@ export class BookingService {
 	}
 
 	async createBooking(dto: CreateBookingDTO) {
-		const { tenantId, userId, tripId, seatNumber, customFieldValues } = dto;
+		const { tenantId, passengerId, tripId, seatNumber, customFieldValues } = dto;
 
 		const trip = await this.validateTrip(tripId, tenantId);
-		await this.checkDuplicateBooking(userId, tripId, tenantId);
+		await this.checkDuplicateBooking(passengerId, tripId, tenantId);
 
 		if (seatNumber) {
 			await this.checkSeatAvailability(tripId, seatNumber, tenantId);
@@ -49,7 +49,7 @@ export class BookingService {
 
 		const booking = await this.repository.create({
 			tenant: { connect: { id: tenantId } },
-			user: { connect: { id: userId } },
+			passenger: { connect: { id: passengerId } },
 			trip: { connect: { id: tripId } },
 			seatNumber,
 			ticketNumber,
@@ -71,14 +71,14 @@ export class BookingService {
 		return booking;
 	}
 
-	async getBooking(bookingId: string, tenantId: string, userId?: string) {
+	async getBooking(bookingId: string, tenantId: string, passengerId?: string) {
 		const booking = await this.repository.findById(bookingId, tenantId);
 
 		if (!booking) {
 			throw new Error("Booking not found");
 		}
 
-		if (userId && booking.userId !== userId) {
+		if (passengerId && booking.passengerId !== passengerId) {
 			throw new Error("Unauthorized to view this booking");
 		}
 
@@ -107,7 +107,7 @@ export class BookingService {
 	}
 
 	async getUserBookings(
-		userId: string,
+		passengerId: string,
 		tenantId: string,
 		params?: {
 			status?: BookingStatus;
@@ -118,7 +118,7 @@ export class BookingService {
 		const { page = 1, limit = 20, status } = params || {};
 		const skip = (page - 1) * limit;
 
-		return this.repository.getUserBookings(userId, tenantId, {
+		return this.repository.getUserBookings(passengerId, tenantId, {
 			status,
 			skip,
 			take: limit,
@@ -126,11 +126,11 @@ export class BookingService {
 	}
 
 	async getUpcomingBookings(
-		userId: string,
+		passengerId: string,
 		tenantId: string,
 		limit: number = 5
 	) {
-		return this.repository.getUpcomingBookings(userId, tenantId, limit);
+		return this.repository.getUpcomingBookings(passengerId, tenantId, limit);
 	}
 
 	async getAvailableSeats(tripId: string, tenantId: string) {
@@ -186,8 +186,8 @@ export class BookingService {
 		};
 	}
 
-	async checkInPassenger(bookingId: string, tenantId: string) {
-		const booking = await this.repository.findById(bookingId, tenantId);
+	async checkInPassenger(bookingId: string, passengerId: string) {
+		const booking = await this.repository.findById(bookingId, passengerId);
 
 		if (!booking) {
 			throw new Error("Booking not found");
@@ -229,12 +229,12 @@ export class BookingService {
 	}
 
 	private async checkDuplicateBooking(
-		userId: string,
+		passengerId: string,
 		tripId: string,
 		tenantId: string
 	) {
 		const hasDuplicate = await this.repository.hasDuplicateBooking(
-			userId,
+			passengerId,
 			tripId,
 			tenantId
 		);
