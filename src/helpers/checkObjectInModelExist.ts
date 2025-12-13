@@ -6,10 +6,12 @@ export async function checkObjectInModelExistOrFail<T>(
 	},
 	pk: string,
 	value: string | number,
-	errorMessage = "Record not found"
+	errorMessage = "Record not found",
+	select?: any
 ): Promise<T> {
 	const record = await model.findUnique({
 		where: { [pk]: value },
+		select,
 	});
 
 	if (!record) {

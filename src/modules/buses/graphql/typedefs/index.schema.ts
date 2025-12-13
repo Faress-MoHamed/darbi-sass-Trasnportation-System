@@ -32,12 +32,6 @@ export const busTypeDefs = gql`
 		timestamp: String!
 	}
 
-	type Trip {
-		id: ID!
-		busId: ID!
-		startTime: String!
-		endTime: String
-	}
 	type PaginatedBuses {
 		data: [Bus!]!
 		meta: PaginationMeta!

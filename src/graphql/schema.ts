@@ -8,7 +8,7 @@ import { busTypeDefs } from "../modules/buses/graphql/typedefs/index.schema";
 import { mergeTypeDefs } from "@graphql-tools/merge";
 import { userTypeDefs } from "../modules/users/graphql/index.typedef";
 import { bookingTypeDefs } from "../modules/Booking/graphql/typedefs/index.typedef";
-import { TripTypeDefs } from "../modules/Trip/graphql/index.typedef";
+import { TripTypeDefs } from "../modules/Trip/graphql/typedefs/index.typedef";
 
 const typeDefs = mergeTypeDefs([
 	tenantTypeDefs,

@@ -15,6 +15,13 @@ export type ResolverContext = {
 	prisma?: PrismaClient;
 	userId?: string;
 	user?: User | null;
+	userRole?: {
+		id: number;
+		tenantId: string;
+		deletedAt: Date | null;
+		name: string;
+		description: string | null;
+	};
 };
 export type ResolverFn<
 	Parent = any,

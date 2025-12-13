@@ -9,12 +9,17 @@ datasource db {
 // ============================================================================
 // Enums
 // ============================================================================
-
-enum PlanType {
-  basic
-  pro
-  enterprise
+enum RoleType {
+  super_admin
+  admin
+  manager
+  driver
+  passenger
+  support
+  custom
 }
+
+
 
 enum TenantStatus {
   active
@@ -22,12 +27,14 @@ enum TenantStatus {
   inactive
 }
 
+enum passenger_access_policy {
+open
+restricted
+}
+
 enum UserRoleEnum {
   SuperAdmin
   admin
-  supervisor
-  driver
-  passenger
 }
 
 enum UserStatus {
@@ -211,40 +218,28 @@ model AccessToken {
   @@map("access_tokens")
 }
 
-model OtpToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  token     String    @db.Text()
-  expiresAt DateTime  @map("expires_at")
-  verified  Boolean   @default(false)
-  createdAt DateTime  @default(now()) @map("created_at")
-  usedAt    DateTime? @map("used_at")
-  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  otp       Otp?     @relation(fields: [otpId], references: [id])
-  otpId     String?  @db.Uuid @unique
-  deletedAt  DateTime?  @map("deleted_at")
-
-  @@index([userId])
-  @@index([token])
-  @@map("otp_tokens")
-}
-
 model Otp {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  expiresAt DateTime  @map("expires_at")
-  code      String    @unique  @db.VarChar(10)
-  createdAt DateTime  @default(now()) @map("created_at")
-  attempts  Int       @default(0)
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+
+  // OTP data
+  code       String    @db.VarChar(10)
+  token      String?   @db.Text()
+
+  expiresAt  DateTime  @map("expires_at")
+  attempts   Int       @default(0)
+
+  verified   Boolean   @default(false)
+  usedAt     DateTime? @map("used_at")
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  deletedAt  DateTime? @map("deleted_at")
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  otpToken OtpToken?
-
-  deletedAt  DateTime?  @map("deleted_at")
-
   @@index([userId])
+  @@index([code])
+  @@index([token])
   @@map("otp")
 }
 
@@ -255,11 +250,14 @@ model Otp {
 model Tenant {
   id        String       @id @default(uuid()) @db.Uuid
   name      String       @db.VarChar(150)
-  planType  PlanType     @map("plan_type")
   status    TenantStatus
+  accessPolicy passenger_access_policy @map("access_policy") @default(open)
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
   deletedAt  DateTime?  @map("deleted_at")
+
+
+
 
   tenantSettings        TenantSetting[]
   roles                 Role[]
@@ -313,11 +311,12 @@ model TenantSetting {
 
 model User {
   id                 String       @id @default(uuid()) @db.Uuid
-  role               UserRoleEnum @default(passenger)
+  role               UserRoleEnum?
   name               String?      @db.VarChar(150)
   email              String?      @unique @db.VarChar(150)
   phone              String       @unique @db.VarChar(20)
-  password           String?       @map("password") @db.Text
+  password           String?      @map("password") @db.Text
+  phoneVerified     Boolean?      @default(false) @map("phone_verified")
   avatar             String?      @db.VarChar(255)
   language           String?      @db.VarChar(10)
   status             UserStatus
@@ -325,12 +324,12 @@ model User {
   createdAt          DateTime     @default(now()) @map("created_at")
   mustChangePassword Boolean      @default(true)
   deletedAt  DateTime?  @map("deleted_at")
+
+
   logs              Log[]
   driver            Driver?
   passenger         Passenger[]
   userRoles         UserRole[]
-  bookings          Booking[]
-  subscriptions     Subscription[]
   loyaltyPoints     LoyaltyPoint[]
   payments          Payment[]
   paymentMethods    PaymentMethod[]
@@ -339,7 +338,6 @@ model User {
   supportReplies    SupportReply[]
   customFieldValues UserCustomFieldValue[]
   accessTokens      AccessToken[]
-  otpTokens         OtpToken[]
   otps Otp[]
   @@index([email, phone,status,role])
   @@map("users")
@@ -348,19 +346,22 @@ model User {
 }
 
 model Role {
-  id          Int     @id @default(autoincrement())
+  id          String   @id @default(uuid()) // المفتاح الأساسي
+  type        RoleType
   tenantId    String  @map("tenant_id") @db.Uuid
   name        String  @db.VarChar(100)
   description String? @db.Text
-  deletedAt  DateTime?  @map("deleted_at")
+  deletedAt   DateTime?  @map("deleted_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
   rolePermissions RolePermission[]
   userRoles       UserRole[]
-  @@index([tenantId])
+  @@unique([tenantId, type]) // 👈 مهم جدًا
 
+  @@index([tenantId])
   @@map("roles")
 }
+
 
 model Permission {
   id          Int     @id @default(autoincrement())
@@ -374,7 +375,7 @@ model Permission {
 }
 
 model RolePermission {
-  roleId       Int @map("role_id")
+  roleId       String @map("role_id")
   permissionId Int @map("permission_id")
   deletedAt  DateTime?  @map("deleted_at")
 
@@ -387,7 +388,7 @@ model RolePermission {
 
 model UserRole {
   userId String @map("user_id") @db.Uuid
-  roleId Int    @map("role_id")
+  roleId String    @map("role_id")
   tenantId String @map("tenant_id") @db.Uuid
   deletedAt  DateTime?  @map("deleted_at")
   
@@ -412,7 +413,7 @@ model Log {
   timestamp  DateTime @default(now())
   deletedAt  DateTime?  @map("deleted_at")
   
-    tenant Tenant? @relation(fields: [tenantId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
   @@index([tenantId])
   @@index([userId])
@@ -449,7 +450,7 @@ model Driver {
 
 model Bus {
   id                String    @id @default(uuid()) @db.Uuid
-  tenantId          String    @map("tenant_id") @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid @unique()
   busNumber         String    @map("bus_number") @db.VarChar(50)
   capacity          Int?
   type              String?   @db.VarChar(50)
@@ -477,7 +478,7 @@ model Route {
   distanceKm        Decimal?                @map("distance_km") @db.Decimal(6, 2)
   estimatedTime   String?   @map("estimated_time") @db.VarChar(8)
   active            Boolean?
-    deletedAt  DateTime?  @map("deleted_at")
+  deletedAt  DateTime?  @map("deleted_at")
 
   tenant            Tenant                  @relation(fields: [tenantId], references: [id])
 
@@ -584,13 +585,13 @@ model TripLog {
 
 model Passenger {
   id                 String              @id @default(uuid()) @db.Uuid
-  tenantId           String              @map("tenant_id") @db.Uuid
+  tenantId           String?              @map("tenant_id") @db.Uuid
   userId             String              @map("user_id") @db.Uuid
   subscriptionStatus SubscriptionStatus? @map("subscription_status")
   pointsBalance      Int?                @map("points_balance")
   deletedAt  DateTime?  @map("deleted_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
   user   User   @relation(fields: [userId], references: [id])
 
   customFieldValues PassengerCustomFieldValue[]
@@ -598,13 +599,16 @@ model Passenger {
   @@unique([tenantId, userId])
 
   @@map("passengers")
+  bookings Booking[]
+  @@unique([id, tenantId])
+  subscriptions Subscription[]
 }
 
 model Booking {
   id           String        @id @default(uuid()) @db.Uuid
   tenantId     String        @map("tenant_id") @db.Uuid
   tripId       String?       @map("trip_id") @db.Uuid
-  userId       String?       @map("user_id") @db.Uuid
+  passengerId  String?       @map("passenger_id") @db.Uuid
   seatNumber   String?       @map("seat_number") @db.VarChar(10)
   status       BookingStatus
   ticketNumber String?       @map("ticket_number") @db.VarChar(100)
@@ -614,19 +618,18 @@ model Booking {
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id])
   trip    Trip?    @relation(fields: [tripId], references: [id])
-  user    User?    @relation(fields: [userId], references: [id])
   payment Payment? @relation(fields: [paymentId], references: [id])
-
+  passenger Passenger? @relation(fields: [passengerId, tenantId], references: [id, tenantId])
   tickets           Ticket[]
   customFieldValues BookingCustomFieldValue[]
   @@index([tenantId])
   @@index([tripId])
-  @@index([userId])
+  @@index([passengerId])
   @@index([status])
   @@index([bookingDate])
   @@index([paymentId])
     @@index([tenantId, status])
-  @@index([userId, status])
+  @@index([passengerId, status])
   @@index([tripId, status])
   @@map("bookings")
 }
@@ -634,7 +637,7 @@ model Booking {
 model Subscription {
   id        String             @id @default(uuid()) @db.Uuid
   tenantId  String             @map("tenant_id") @db.Uuid
-  userId    String?            @map("user_id") @db.Uuid
+  passengerId    String?            @map("passenger_id") @db.Uuid
   planName  String?            @map("plan_name") @db.VarChar(100)
   startDate DateTime?          @map("start_date") @db.Date
   endDate   DateTime?          @map("end_date") @db.Date
@@ -643,9 +646,9 @@ model Subscription {
   deletedAt  DateTime?  @map("deleted_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
-  user   User?  @relation(fields: [userId], references: [id])
+  passenger Passenger?  @relation(fields: [passengerId], references: [id])
   @@index([tenantId])
-  @@index([userId])
+  @@index([passengerId])
   @@index([status])
   @@index([endDate])
   @@map("subscriptions")

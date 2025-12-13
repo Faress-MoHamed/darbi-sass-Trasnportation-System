@@ -33,12 +33,27 @@ export default async function createServer() {
 				}
 				const tenant = await new TenantService().getOneTenant(tenantId);
 				const user = await new UserService().findByToken(token);
+				const userRole = await PrismaForDev(
+					tenant?.id,
+					user?.id
+				).userRole.findFirst({
+					where: {
+						userId: user?.id,
+						tenantId: tenant?.id,
+					},
+					select: {
+						role: true,
+					},
+				});
+				
+
 				return {
 					token,
-					tenant,
+					tenant: { ...tenant, tenantId: tenant?.id },
 					userId: user?.id,
 					prisma: PrismaForDev(tenant?.id, user?.id), // نمرّر tenant.id هنا
 					user,
+					userRole: userRole?.role,
 				};
 			},
 		})
