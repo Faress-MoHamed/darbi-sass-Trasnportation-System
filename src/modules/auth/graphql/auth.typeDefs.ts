@@ -40,17 +40,17 @@ export const authTypeDefs = gql`
 		token: String
 	}
 
-	type RegisterInput {
-    phone: String;
-    name: String;
-    email: String;
-    password: String;
-    confirmPassword: String;
-}
-type RegisterResponse {
-    success: boolean;
-    message: string;
-}
+	input RegisterInput {
+		phone: String
+		name: String
+		email: String
+		password: String
+		confirmPassword: String
+	}
+	type RegisterResponse {
+		success: Boolean
+		message: String
+	}
 	type AuthMutations {
 		Register(input: RegisterInput!): RegisterResponse
 		login(input: LoginInput!): LoginResponse
