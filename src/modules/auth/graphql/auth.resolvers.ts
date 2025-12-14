@@ -9,6 +9,7 @@ import {
 	VerifyOtpDto,
 	ResetPasswordDto,
 } from "../dto/auth.dto";
+import { RegisterSchema } from "../validation/registerValidation";
 
 const authModule = new AuthService();
 
@@ -17,6 +18,13 @@ export const authResolver = createResolvers({
 		auth: () => ({}), // Returns empty object for namespace
 	},
 	AuthMutations: {
+		Register: async (_: any, args) => {
+			const result = RegisterSchema.safeParse(args.input);
+			if (!result.success) {
+				throw new ValidationError(result.error);
+			}
+			return authModule.Register(result.data);
+		},
 		login: async (_: any, args) => {
 			const result = LoginDto.safeParse(args.input);
 			if (!result.success) {

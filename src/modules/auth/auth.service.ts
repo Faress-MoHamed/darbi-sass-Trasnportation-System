@@ -5,9 +5,9 @@ import { LogService } from "../../services/log.service";
 import { UserService } from "../users/users.services";
 import {
 	PrismaClient,
+	UserRoleEnum,
 	UserStatus,
 	type Prisma,
-	type UserRoleEnum,
 } from "@prisma/client";
 import { AppError } from "../../errors/AppError";
 import { BadRequestError } from "../../errors/BadRequestError";
@@ -59,8 +59,8 @@ export class AuthService {
 		};
 	}
 	async Register(
-		input: RegisterDto & { role: UserRoleEnum },
-		prismaTx: PrismaClient | Prisma.TransactionClient,
+		input: RegisterDto & { role?: UserRoleEnum },
+		prismaTx?: PrismaClient | Prisma.TransactionClient,
 		tenantId?: string
 	) {
 		let PrismaModule = prismaTx || prisma;
@@ -71,7 +71,7 @@ export class AuthService {
 				phone,
 				password,
 				email: email || null,
-				role: input.role || "passenger",
+				role: input.role || null,
 				status: "pending",
 				phoneVerified: false,
 				mustChangePassword: false,
