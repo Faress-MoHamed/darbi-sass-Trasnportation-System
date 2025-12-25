@@ -3,6 +3,7 @@ import "dotenv/config";
 
 export default defineConfig({
 	schema: "src/prisma/schema.prisma",
+
 	migrations: {
 		path: "src/prisma/migrations",
 	},
