@@ -451,9 +451,10 @@ async function seedUsers(roleMap: Map<string, string>, TENANT_ID: string) {
 		if (roleId) {
 			await prisma.userRole.upsert({
 				where: {
-					userId_roleId: {
+					userId_roleId_tenantId: {
 						userId: user.id,
 						roleId: roleId,
+						tenantId: TENANT_ID,
 					},
 				},
 				update: {},

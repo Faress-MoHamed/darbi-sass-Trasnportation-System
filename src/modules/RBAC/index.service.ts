@@ -196,11 +196,11 @@ export class RBACService {
 		return true;
 	}
 
-	async removeRoleFromUser(userId: string, roleId: string): Promise<boolean> {
+	async removeRoleFromUser(userId: string, roleId: string, context: ResolverContext): Promise<boolean> {
 		await CheckIfUserExist(userId);
 		await this.prisma.userRole.delete({
 			where: {
-				userId_roleId: { userId, roleId },
+				userId_roleId_tenantId: { userId, roleId, tenantId: context.tenant?.tenantId! },
 			},
 		});
 		return true;

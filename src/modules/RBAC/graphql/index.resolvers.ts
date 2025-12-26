@@ -192,7 +192,12 @@ export const rbacResolvers = createResolvers({
 					_: any,
 					{ userId, roleId }: { userId: string; roleId: string },
 					context
-				) => new RBACService(context.prisma).removeRoleFromUser(userId, roleId)
+				) =>
+					new RBACService(context.prisma).removeRoleFromUser(
+						userId,
+						roleId,
+						context
+					)
 			)
 		),
 	},
