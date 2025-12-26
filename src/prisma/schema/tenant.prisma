@@ -1,0 +1,88 @@
+// ============================================================================
+// Tenant Management
+// ============================================================================
+
+model Tenant {
+  id           String                   @id @default(uuid()) @db.Uuid
+  name         String                   @db.VarChar(150)
+  status       TenantStatus
+  accessPolicy passenger_access_policy  @default(open) @map("access_policy")
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+  deletedAt    DateTime?                @map("deleted_at")
+
+  tenantSettings        TenantSetting[]
+  roles                 Role[]
+  logs                  Log[]
+  drivers               Driver[]
+  buses                 Bus[]
+  routes                Route[]
+  stations              Station[]
+  trips                 Trip[]
+  passengers            Passenger[]
+  bookings              Booking[]
+  subscriptions         Subscription[]
+  tickets               Ticket[]
+  loyaltyPoints         LoyaltyPoint[]
+  payments              Payment[]
+  paymentMethods        PaymentMethod[]
+  financialReports      FinancialReport[]
+  notifications         Notification[]
+  supportTickets        SupportTicket[]
+  emergencyAlerts       EmergencyAlert[]
+  analyticsKpis         AnalyticsKpi[]
+  mapLayers             MapLayer[]
+  settings              Setting[]
+  attachments           Attachment[]
+  userCustomFields      UserCustomField[]
+  driverCustomFields    DriverCustomField[]
+  busCustomFields       BusCustomField[]
+  passengerCustomFields PassengerCustomField[]
+  tripCustomFields      TripCustomField[]
+  bookingCustomFields   BookingCustomField[]
+  routeCustomFields     RouteCustomField[]
+  activityLogs          ActivityLog[]
+  userRoles             UserRole[]
+
+  @@map("tenants")
+}
+
+model TenantSetting {
+  id        Int       @id @default(autoincrement())
+  tenantId  String    @map("tenant_id") @db.Uuid
+  key       String    @db.VarChar(100)
+  value     String?   @db.Text
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("tenant_settings")
+}
+
+model Setting {
+  id        Int       @id @default(autoincrement())
+  tenantId  String    @map("tenant_id") @db.Uuid
+  key       String    @db.VarChar(100)
+  value     String?   @db.Text
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("settings")
+}
+
+model Attachment {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  entityType String?   @map("entity_type") @db.VarChar(100)
+  entityId   String?   @map("entity_id") @db.Uuid
+  filePath   String?   @map("file_path") @db.VarChar(255)
+  uploadedAt DateTime  @map("uploaded_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("attachments")
+}

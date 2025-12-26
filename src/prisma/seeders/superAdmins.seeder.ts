@@ -1,10 +1,12 @@
-import { PrismaClient, UserRoleEnum, RoleType } from "@prisma/client";
+import {
+	PrismaClient,
+	UserRoleEnum,
+	RoleType,
+	type Prisma,
+} from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { prisma } from "../../lib/prisma";
-import {
-	getAllPermissions,
-	PERMISSIONS,
-} from "../../helpers/permissionhelper";
+import { getAllPermissions, PERMISSIONS } from "../../helpers/permissionhelper";
 
 const SALT_ROUNDS = 12;
 
@@ -18,15 +20,16 @@ const ROLE_TYPE_MAP: Record<string, RoleType> = {
 };
 
 // Role definitions with their permissions
-const ROLE_DEFINITIONS = {
-	SuperAdmin: {
+export const ROLE_DEFINITIONS = {
+	super_admin: {
 		name: "Super Admin",
 		description: "Full system access with all permissions",
 		permissions: [PERMISSIONS.SUPER_ADMIN, PERMISSIONS.SYSTEM_FULL_ACCESS],
 	},
-	Admin: {
+
+	admin: {
 		name: "Admin",
-		description: "Administrative access to manage organization",
+		description: "Administrative access to manage the organization",
 		permissions: [
 			// User Management
 			PERMISSIONS.USERS_VIEW,
@@ -60,7 +63,7 @@ const ROLE_DEFINITIONS = {
 			PERMISSIONS.BUSES_VIEW_GPS,
 			PERMISSIONS.BUSES_MANAGE_MAINTENANCE,
 
-			// Route & Station Management
+			// Routes & Stations
 			PERMISSIONS.ROUTES_VIEW,
 			PERMISSIONS.ROUTES_CREATE,
 			PERMISSIONS.ROUTES_UPDATE,
@@ -72,7 +75,7 @@ const ROLE_DEFINITIONS = {
 			PERMISSIONS.STATIONS_UPDATE,
 			PERMISSIONS.STATIONS_DELETE,
 
-			// Trip Management
+			// Trips
 			PERMISSIONS.TRIPS_VIEW,
 			PERMISSIONS.TRIPS_CREATE,
 			PERMISSIONS.TRIPS_UPDATE,
@@ -81,19 +84,17 @@ const ROLE_DEFINITIONS = {
 			PERMISSIONS.TRIPS_VIEW_LOGS,
 			PERMISSIONS.TRIPS_VIEW_PERFORMANCE,
 
-			// Passenger & Booking Management
+			// Passengers & Bookings
 			PERMISSIONS.PASSENGERS_VIEW,
 			PERMISSIONS.PASSENGERS_CREATE,
 			PERMISSIONS.PASSENGERS_UPDATE,
-			PERMISSIONS.PASSENGERS_MANAGE_SUBSCRIPTIONS,
-			PERMISSIONS.PASSENGERS_MANAGE_LOYALTY,
 			PERMISSIONS.BOOKINGS_VIEW,
 			PERMISSIONS.BOOKINGS_CREATE,
 			PERMISSIONS.BOOKINGS_UPDATE,
 			PERMISSIONS.BOOKINGS_CANCEL,
 			PERMISSIONS.BOOKINGS_CONFIRM,
 
-			// Financial Management
+			// Finance
 			PERMISSIONS.FINANCE_VIEW_REVENUE,
 			PERMISSIONS.FINANCE_VIEW_EXPENSES,
 			PERMISSIONS.FINANCE_MANAGE_EXPENSES,
@@ -103,71 +104,67 @@ const ROLE_DEFINITIONS = {
 			PERMISSIONS.PAYMENTS_PROCESS,
 			PERMISSIONS.PAYMENTS_REFUND,
 
-			// Analytics & Reports
+			// Analytics
 			PERMISSIONS.ANALYTICS_VIEW_DASHBOARD,
 			PERMISSIONS.ANALYTICS_VIEW_KPIS,
 			PERMISSIONS.ANALYTICS_VIEW_REPORTS,
 			PERMISSIONS.ANALYTICS_EXPORT_DATA,
 
-			// Notifications & Support
+			// Notifications & System
 			PERMISSIONS.NOTIFICATIONS_VIEW,
 			PERMISSIONS.NOTIFICATIONS_CREATE,
 			PERMISSIONS.NOTIFICATIONS_SCHEDULE,
-			PERMISSIONS.SUPPORT_VIEW_TICKETS,
-			PERMISSIONS.SUPPORT_REPLY_TICKET,
-			PERMISSIONS.SUPPORT_MANAGE_STATUS,
-			PERMISSIONS.SUPPORT_CLOSE_TICKET,
-
-			// Emergency
-			PERMISSIONS.EMERGENCY_VIEW_ALERTS,
-			PERMISSIONS.EMERGENCY_RESPOND,
-
-			// Settings
 			PERMISSIONS.SETTINGS_VIEW,
 			PERMISSIONS.SETTINGS_UPDATE,
 			PERMISSIONS.AUDIT_VIEW_LOGS,
 			PERMISSIONS.LOGS_VIEW,
 		],
 	},
-	Supervisor: {
-		name: "Supervisor",
+
+	manager: {
+		name: "Manager",
 		description: "Supervisory access to monitor and manage operations",
 		permissions: [
-			// View permissions for most entities
 			PERMISSIONS.USERS_VIEW,
+
 			PERMISSIONS.DRIVERS_VIEW,
 			PERMISSIONS.DRIVERS_VIEW_PERFORMANCE,
 			PERMISSIONS.DRIVERS_ASSIGN_TRIPS,
+
 			PERMISSIONS.BUSES_VIEW,
 			PERMISSIONS.BUSES_VIEW_GPS,
+
 			PERMISSIONS.ROUTES_VIEW,
 			PERMISSIONS.STATIONS_VIEW,
+
 			PERMISSIONS.TRIPS_VIEW,
 			PERMISSIONS.TRIPS_UPDATE,
 			PERMISSIONS.TRIPS_MANAGE_STATUS,
 			PERMISSIONS.TRIPS_VIEW_LOGS,
 			PERMISSIONS.TRIPS_VIEW_PERFORMANCE,
-			PERMISSIONS.PASSENGERS_VIEW,
+
 			PERMISSIONS.BOOKINGS_VIEW,
 			PERMISSIONS.BOOKINGS_CONFIRM,
 			PERMISSIONS.BOOKINGS_CANCEL,
-			PERMISSIONS.TICKETS_VIEW,
-			PERMISSIONS.TICKETS_VERIFY,
+
 			PERMISSIONS.PAYMENTS_VIEW,
+
 			PERMISSIONS.ANALYTICS_VIEW_DASHBOARD,
 			PERMISSIONS.ANALYTICS_VIEW_KPIS,
 			PERMISSIONS.ANALYTICS_VIEW_REPORTS,
+
 			PERMISSIONS.MAPS_VIEW,
 			PERMISSIONS.MAPS_TRACK_BUSES,
+
 			PERMISSIONS.NOTIFICATIONS_VIEW,
 			PERMISSIONS.NOTIFICATIONS_CREATE,
-			PERMISSIONS.SUPPORT_VIEW_TICKETS,
-			PERMISSIONS.SUPPORT_REPLY_TICKET,
+
 			PERMISSIONS.EMERGENCY_VIEW_ALERTS,
 			PERMISSIONS.EMERGENCY_RESPOND,
 		],
 	},
-	Driver: {
+
+	driver: {
 		name: "Driver",
 		description: "Driver access to manage assigned trips",
 		permissions: [
@@ -182,7 +179,8 @@ const ROLE_DEFINITIONS = {
 			PERMISSIONS.SUPPORT_VIEW_TICKETS,
 		],
 	},
-	Passenger: {
+
+	passenger: {
 		name: "Passenger",
 		description: "Passenger access for booking and managing trips",
 		permissions: [
@@ -195,8 +193,6 @@ const ROLE_DEFINITIONS = {
 			PERMISSIONS.TICKETS_VIEW,
 			PERMISSIONS.PAYMENTS_VIEW,
 			PERMISSIONS.PAYMENTS_PROCESS,
-			PERMISSIONS.PAYMENTS_VIEW_METHODS,
-			PERMISSIONS.PAYMENTS_MANAGE_METHODS,
 			PERMISSIONS.SUBSCRIPTIONS_VIEW,
 			PERMISSIONS.SUBSCRIPTIONS_CREATE,
 			PERMISSIONS.SUBSCRIPTIONS_CANCEL,
@@ -205,7 +201,26 @@ const ROLE_DEFINITIONS = {
 			PERMISSIONS.MAPS_VIEW,
 		],
 	},
-};
+
+	support: {
+		name: "Support",
+		description: "Customer support and ticket handling",
+		permissions: [
+			PERMISSIONS.SUPPORT_VIEW_TICKETS,
+			PERMISSIONS.SUPPORT_REPLY_TICKET,
+			PERMISSIONS.SUPPORT_CLOSE_TICKET,
+			PERMISSIONS.USERS_VIEW,
+			PERMISSIONS.BOOKINGS_VIEW,
+			PERMISSIONS.PASSENGERS_VIEW,
+		],
+	},
+
+	custom: {
+		name: "Custom",
+		description: "Custom role with manually assigned permissions",
+		permissions: [],
+	},
+} as const;
 
 // Sample users for each role
 const SAMPLE_USERS = [
@@ -346,16 +361,19 @@ async function seedPermissions() {
 	console.log(`✅ ${allPermissions.length} permissions created/updated`);
 }
 
-export async function seedRoles(TENANT_ID: string) {
+export async function seedRoles(
+	TENANT_ID: string,
+	prismaClient?: Prisma.TransactionClient
+) {
 	console.log("\n👥 Seeding Roles...");
-
+	const prismaModule = prismaClient || prisma;
 	const roleMap = new Map<string, string>(); // roleName -> roleId
 
 	for (const [roleName, roleData] of Object.entries(ROLE_DEFINITIONS)) {
 		const roleType = ROLE_TYPE_MAP[roleName];
 		if (!roleType) continue;
 
-		const role = await prisma.role.upsert({
+		const role = await prismaModule.role.upsert({
 			where: {
 				tenantId_type: {
 					tenantId: TENANT_ID,
@@ -376,24 +394,20 @@ export async function seedRoles(TENANT_ID: string) {
 
 		roleMap.set(roleName, role.id);
 
-		await prisma.rolePermission.deleteMany({
+		await prismaModule.rolePermission.deleteMany({
 			where: { roleId: role.id },
 		});
 
-		for (const permKey of roleData.permissions) {
-			const permission = await prisma.permission.findUnique({
-				where: { key: permKey },
-			});
+		const permissions = await prismaModule.permission.findMany({
+			where: { key: { in: Array.from(roleData.permissions) } },
+		});
 
-			if (permission) {
-				await prisma.rolePermission.create({
-					data: {
-						roleId: role.id,
-						permissionId: permission.id,
-					},
-				});
-			}
-		}
+		await prismaModule.rolePermission.createMany({
+			data: permissions.map((p) => ({
+				roleId: role.id,
+				permissionId: p.id,
+			})),
+		});
 
 		console.log(`✅ Role synced: ${role.name}`);
 	}

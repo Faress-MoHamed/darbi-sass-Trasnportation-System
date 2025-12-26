@@ -1,0 +1,85 @@
+// ============================================================================
+// Users & Logs
+// ============================================================================
+
+model User {
+  id                 String       @id @default(uuid()) @db.Uuid
+  role               UserRoleEnum?
+  name               String?      @db.VarChar(150)
+  email              String?      @unique @db.VarChar(150)
+  phone              String       @unique @db.VarChar(20)
+  password           String?      @map("password") @db.Text
+  phoneVerified      Boolean?     @default(false) @map("phone_verified")
+  avatar             String?      @db.VarChar(255)
+  language           String?      @db.VarChar(10)
+  status             UserStatus
+  lastLogin          DateTime?    @map("last_login")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  mustChangePassword Boolean      @default(true)
+  deletedAt          DateTime?    @map("deleted_at")
+
+  logs                   Log[]
+  driver                 Driver?
+  passenger              Passenger[]
+  userRoles              UserRole[]
+  loyaltyPoints          LoyaltyPoint[]
+  payments               Payment[]
+  paymentMethods         PaymentMethod[]
+  notifications          Notification[]
+  supportTickets         SupportTicket[]
+  supportReplies         SupportReply[]
+  customFieldValues      UserCustomFieldValue[]
+  accessTokens           AccessToken[]
+  otps                   Otp[]
+  notificationRecipients NotificationRecipient[]
+  activityLogs           ActivityLog[]
+
+  @@index([email, phone, status, role])
+  @@map("users")
+}
+
+model Log {
+  id         BigInt    @id @default(autoincrement())
+  tenantId   String?   @map("tenant_id") @db.Uuid
+  userId     String?   @map("user_id") @db.Uuid
+  action     String    @db.VarChar(150)
+  entityType String?   @map("entity_type") @db.VarChar(100)
+  entityId   String?   @map("entity_id") @db.Uuid
+  ipAddress  String?   @map("ip_address") @db.VarChar(50)
+  timestamp  DateTime  @default(now())
+  deletedAt  DateTime? @map("deleted_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([timestamp])
+  @@map("logs")
+}
+
+model ActivityLog {
+  id         BigInt          @id @default(autoincrement())
+  tenantId   String?         @map("tenant_id") @db.Uuid
+  userId     String?         @map("user_id") @db.Uuid
+  logType    ActivityLogType
+  action     String
+  entityType String?
+  entityId   String?
+  oldData    Json?
+  newData    Json?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  severity   LogSeverity     @default(info)
+  timestamp  DateTime        @default(now())
+  deletedAt  DateTime?       @map("deleted_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, timestamp])
+  @@index([userId, timestamp])
+  @@index([entityType, entityId])
+  @@index([logType, severity])
+}

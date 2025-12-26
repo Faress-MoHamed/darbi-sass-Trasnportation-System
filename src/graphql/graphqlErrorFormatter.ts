@@ -5,17 +5,14 @@ export function graphqlErrorFormatter(
 	formattedError: GraphQLFormattedError,
 	error: any
 ) {
-	console.error("⚡ GraphQL Error:", error);
-
-	if (error.originalError instanceof AppError) {
-		return {
-			status: error.originalError.status,
-			message: error.originalError.message,
-		};
-	}
+	console.error(
+		"⚡ GraphQL Error:",
+		{ error: error },
+		formattedError
+	);
 
 	return {
-		status: 500,
-		message: "Internal Server Error",
+		status: formattedError.extensions?.status || 500,
+		message: formattedError.message || "Internal Server Error",
 	};
 }

@@ -1,0 +1,110 @@
+// ============================================================================
+// Payments & Financial Management
+// ============================================================================
+
+model Payment {
+  id            String        @id @default(uuid()) @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  userId        String?       @map("user_id") @db.Uuid
+  amount        Decimal?      @db.Decimal(10, 2)
+  method        PaymentType
+  provider      String?       @db.VarChar(50)
+  transactionId String?       @map("transaction_id") @db.VarChar(150)
+  status        PaymentStatus
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  reference     String?       @db.VarChar(100)
+  notes         String?       @db.Text
+  deletedAt     DateTime?     @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  bookings Booking[]
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([transactionId])
+  @@map("payments")
+}
+
+model PaymentMethod {
+  id        String            @id @default(uuid()) @db.Uuid
+  tenantId  String            @map("tenant_id") @db.Uuid
+  userId    String?           @map("user_id") @db.Uuid
+  type      PaymentMethodEnum
+  provider  String?           @db.VarChar(50)
+  last4     String?           @db.VarChar(4)
+  token     String?           @db.VarChar(255)
+  isDefault Boolean?          @map("is_default")
+  createdAt DateTime          @default(now()) @map("created_at")
+  deletedAt DateTime?         @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([isDefault])
+  @@map("payment_methods")
+}
+
+model Revenue {
+  id          String         @id @default(uuid())
+  tenantId    String         @map("tenant_id") @db.Uuid
+  date        DateTime       @db.Date
+  amount      Decimal        @db.Decimal(12, 2)
+  currency    String         @default("EGP") @db.VarChar(3)
+  source      RevenueSource
+  category    RevenueCategory
+  tripsCount  Int?
+  description String?
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  deletedAt   DateTime?      @map("deleted_at")
+
+  @@index([tenantId, date])
+  @@index([source, date])
+}
+
+model Expense {
+  id            String          @id @default(uuid())
+  tenantId      String          @map("tenant_id") @db.Uuid
+  amount        Decimal         @db.Decimal(12, 2)
+  currency      String          @default("EGP") @db.VarChar(3)
+  category      ExpenseCategory
+  subcategory   String?
+  description   String
+  date          DateTime        @db.Date
+  paymentMethod PaymentType
+  approvedBy    String?
+  approvedAt    DateTime?
+  status        ExpenseStatus   @default(pending)
+  receiptUrl    String?
+  createdBy     String
+  createdAt     DateTime        @default(now())
+  deletedAt     DateTime?       @map("deleted_at")
+
+  @@index([tenantId, date])
+  @@index([category, status])
+}
+
+model FinancialReport {
+  id         String              @id @default(uuid()) @db.Uuid
+  tenantId   String              @map("tenant_id") @db.Uuid
+  reportType FinancialReportType @map("report_type")
+  startDate  DateTime            @map("start_date") @db.Date
+  endDate    DateTime            @map("end_date") @db.Date
+  filePath   String?             @map("file_path") @db.VarChar(255)
+  createdAt  DateTime            @default(now()) @map("created_at")
+  deletedAt  DateTime?           @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([reportType])
+  @@index([startDate])
+  @@map("financial_reports")
+}

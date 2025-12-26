@@ -11,27 +11,14 @@ import type { ResolverContext } from "./types/ResolverTypes";
 import { UserService } from "./modules/users/users.services";
 import "graphql-import-node/register";
 import { TenantService } from "./modules/tenant/tenant.service";
-import { WebSocket } from "ws";
 
 export default async function createServer() {
 	const app = express();
 	const httpServer = http.createServer(app);
 
 	const server = createApolloServer(typeDefs, resolvers);
-	const wss = new WebSocket.Server({ noServer: true });
-
 	await server.start();
-	// نستخدم الـ HTTP server للتعامل مع طلبات WebSocket على المسار `/test`
-	httpServer.on("upgrade", (request, socket, head) => {
-		// تحقق إن المسار المطلوب هو /test
-		if (request.url === "/test") {
-			wss.handleUpgrade(request, socket, head, (ws) => {
-				wss.emit("connection", ws, request);
-			});
-		} else {
-			socket.destroy();
-		}
-	});
+	
 	app.use(
 		"/graphql",
 		cors(),
@@ -58,6 +45,7 @@ export default async function createServer() {
 						role: true,
 					},
 				});
+				
 
 				return {
 					token,

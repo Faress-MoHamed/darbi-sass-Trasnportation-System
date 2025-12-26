@@ -1,0 +1,90 @@
+// ============================================================================
+// Notifications, Support & Emergency
+// ============================================================================
+
+model Notification {
+  id           String             @id @default(uuid()) @db.Uuid
+  tenantId     String             @map("tenant_id") @db.Uuid
+  title        String?            @db.VarChar(150)
+  message      String?            @db.Text
+  type         NotificationType
+  targetUserId String?            @map("target_user_id") @db.Uuid
+  scheduledAt  DateTime?          @map("scheduled_at")
+  sentAt       DateTime?          @map("sent_at")
+  status       NotificationStatus
+  createdAt    DateTime           @default(now()) @map("created_at")
+  deletedAt    DateTime?          @map("deleted_at")
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  targetUser User?      @relation(fields: [targetUserId], references: [id])
+
+  recipients NotificationRecipient[]
+
+  @@map("notifications")
+}
+
+model NotificationRecipient {
+  id             String    @id @default(uuid()) @db.Uuid
+  notificationId String    @db.Uuid
+  userId         String    @db.Uuid
+  readAt         DateTime?
+  deliveredAt    DateTime?
+  deletedAt      DateTime? @map("deleted_at")
+
+  notification Notification @relation(fields: [notificationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt])
+}
+
+model SupportTicket {
+  id        String              @id @default(uuid()) @db.Uuid
+  tenantId  String              @map("tenant_id") @db.Uuid
+  userId    String?             @map("user_id") @db.Uuid
+  subject   String?             @db.VarChar(200)
+  message   String?             @db.Text
+  status    SupportTicketStatus
+  createdAt DateTime            @default(now()) @map("created_at")
+  closedAt  DateTime?           @map("closed_at")
+  deletedAt DateTime?           @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  replies SupportReply[]
+
+  @@map("support_tickets")
+}
+
+model SupportReply {
+  id        String    @id @default(uuid()) @db.Uuid
+  ticketId  String    @map("ticket_id") @db.Uuid
+  senderId  String?   @map("sender_id") @db.Uuid
+  message   String?   @db.Text
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id])
+  sender User?         @relation(fields: [senderId], references: [id])
+
+  @@map("support_replies")
+}
+
+model EmergencyAlert {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  driverId    String?   @map("driver_id") @db.Uuid
+  tripId      String?   @map("trip_id") @db.Uuid
+  message     String?   @db.Text
+  locationLat Decimal?  @map("location_lat") @db.Decimal(10, 6)
+  locationLng Decimal?  @map("location_lng") @db.Decimal(10, 6)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  driver Driver? @relation(fields: [driverId], references: [id])
+  trip   Trip?   @relation(fields: [tripId], references: [id])
+
+  @@map("emergency_alerts")
+}

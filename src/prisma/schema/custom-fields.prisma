@@ -1,0 +1,234 @@
+// ============================================================================
+// Custom Fields (Dynamic Fields per Tenant per Entity)
+// ============================================================================
+
+// -------------- Users --------------
+model UserCustomField {
+  id        Int       @id @default(autoincrement())
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String    @db.VarChar(100)
+  label     String    @db.VarChar(150)
+  fieldType FieldType @map("field_type")
+  required  Boolean?
+  options   Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  values UserCustomFieldValue[]
+
+  @@map("user_custom_fields")
+}
+
+model UserCustomFieldValue {
+  id            BigInt    @id @default(autoincrement())
+  userId        String    @map("user_id") @db.Uuid
+  customFieldId Int       @map("custom_field_id")
+  value         String?   @db.Text
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  user        User            @relation(fields: [userId], references: [id])
+  customField UserCustomField @relation(fields: [customFieldId], references: [id])
+
+  @@map("user_custom_field_values")
+}
+
+// -------------- Drivers --------------
+model DriverCustomField {
+  id        Int       @id @default(autoincrement())
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String    @db.VarChar(100)
+  label     String    @db.VarChar(150)
+  fieldType FieldType @map("field_type")
+  required  Boolean?
+  options   Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  values DriverCustomFieldValue[]
+
+  @@map("driver_custom_fields")
+}
+
+model DriverCustomFieldValue {
+  id            BigInt    @id @default(autoincrement())
+  driverId      String    @map("driver_id") @db.Uuid
+  customFieldId Int       @map("custom_field_id")
+  value         String?   @db.Text
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  driver      Driver            @relation(fields: [driverId], references: [id])
+  customField DriverCustomField @relation(fields: [customFieldId], references: [id])
+
+  @@map("driver_custom_field_values")
+}
+
+// -------------- Buses --------------
+model BusCustomField {
+  id        Int       @id @default(autoincrement())
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String    @db.VarChar(100)
+  label     String    @db.VarChar(150)
+  fieldType FieldType @map("field_type")
+  required  Boolean?
+  options   Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  values BusCustomFieldValue[]
+
+  @@map("bus_custom_fields")
+}
+
+model BusCustomFieldValue {
+  id            BigInt    @id @default(autoincrement())
+  busId         String    @map("bus_id") @db.Uuid
+  customFieldId Int       @map("custom_field_id")
+  value         String?   @db.Text
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  bus         Bus            @relation(fields: [busId], references: [id])
+  customField BusCustomField @relation(fields: [customFieldId], references: [id])
+
+  @@map("bus_custom_field_values")
+}
+
+// -------------- Passengers --------------
+model PassengerCustomField {
+  id        Int       @id @default(autoincrement())
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String    @db.VarChar(100)
+  label     String    @db.VarChar(150)
+  fieldType FieldType @map("field_type")
+  required  Boolean?
+  options   Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  values PassengerCustomFieldValue[]
+
+  @@map("passenger_custom_fields")
+}
+
+model PassengerCustomFieldValue {
+  id            BigInt    @id @default(autoincrement())
+  passengerId   String    @map("passenger_id") @db.Uuid
+  customFieldId Int       @map("custom_field_id")
+  value         String?   @db.Text
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  passenger   Passenger            @relation(fields: [passengerId], references: [id])
+  customField PassengerCustomField @relation(fields: [customFieldId], references: [id])
+
+  @@map("passenger_custom_field_values")
+}
+
+// -------------- Trips --------------
+model TripCustomField {
+  id        Int       @id @default(autoincrement())
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String    @db.VarChar(100)
+  label     String    @db.VarChar(150)
+  fieldType FieldType @map("field_type")
+  required  Boolean?
+  options   Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  values TripCustomFieldValue[]
+
+  @@map("trip_custom_fields")
+}
+
+model TripCustomFieldValue {
+  id            BigInt    @id @default(autoincrement())
+  tripId        String    @map("trip_id") @db.Uuid
+  customFieldId Int       @map("custom_field_id")
+  value         String?   @db.Text
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  trip        Trip            @relation(fields: [tripId], references: [id])
+  customField TripCustomField @relation(fields: [customFieldId], references: [id])
+
+  @@map("trip_custom_field_values")
+}
+
+// -------------- Bookings --------------
+model BookingCustomField {
+  id        Int       @id @default(autoincrement())
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String    @db.VarChar(100)
+  label     String    @db.VarChar(150)
+  fieldType FieldType @map("field_type")
+  required  Boolean?
+  options   Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  values BookingCustomFieldValue[]
+
+  @@map("booking_custom_fields")
+}
+
+model BookingCustomFieldValue {
+  id            BigInt    @id @default(autoincrement())
+  bookingId     String    @map("booking_id") @db.Uuid
+  customFieldId Int       @map("custom_field_id")
+  value         String?   @db.Text
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  booking     Booking            @relation(fields: [bookingId], references: [id])
+  customField BookingCustomField @relation(fields: [customFieldId], references: [id])
+
+  @@map("booking_custom_field_values")
+}
+
+// -------------- Routes --------------
+model RouteCustomField {
+  id        Int       @id @default(autoincrement())
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String    @db.VarChar(100)
+  label     String    @db.VarChar(150)
+  fieldType FieldType @map("field_type")
+  required  Boolean?
+  options   Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  values RouteCustomFieldValue[]
+
+  @@map("route_custom_fields")
+}
+
+model RouteCustomFieldValue {
+  id            BigInt    @id @default(autoincrement())
+  routeId       String    @map("route_id") @db.Uuid
+  customFieldId Int       @map("custom_field_id")
+  value         String?   @db.Text
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  route       Route            @relation(fields: [routeId], references: [id])
+  customField RouteCustomField @relation(fields: [customFieldId], references: [id])
+
+  @@map("route_custom_field_values")
+}

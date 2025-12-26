@@ -1,0 +1,196 @@
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum RoleType {
+  super_admin
+  admin
+  manager
+  driver
+  passenger
+  support
+  custom
+}
+
+enum TenantStatus {
+  active
+  suspended
+  inactive
+}
+
+enum passenger_access_policy {
+  open
+  restricted
+}
+
+enum UserRoleEnum {
+  SuperAdmin
+  admin
+}
+
+enum UserStatus {
+  active
+  banned
+  pending
+}
+
+enum FieldType {
+  text
+  number
+  date
+  file
+  boolean
+  select
+}
+
+enum DriverStatus {
+  available
+  unavailable
+  offline
+}
+
+enum BusStatus {
+  active
+  maintenance
+  stopped
+}
+
+enum TripStatus {
+  scheduled
+  boarding
+  in_progress
+  delayed
+  completed
+  cancelled
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+}
+
+enum BookingStatus {
+  confirmed
+  cancelled
+  pending
+}
+
+enum PaymentMethodEnum {
+  wallet
+  credit_card
+  debit_card
+}
+
+enum PaymentStatus {
+  success
+  failed
+  pending
+  refunded
+}
+
+enum PaymentType {
+  wallet
+  card
+  cash
+}
+
+enum FinancialReportType {
+  revenue
+  expense
+  summary
+}
+
+enum NotificationType {
+  alert
+  delay
+  route_change
+  emergency
+  promo
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+}
+
+enum SupportTicketStatus {
+  open
+  in_progress
+  closed
+}
+
+enum BusOperationStatus {
+  active
+  idle
+  stopped
+  maintenance
+}
+
+enum MapLayerType {
+  route_overlay
+  heatmap
+  zones
+}
+
+enum AuditActionType {
+  create
+  update
+  delete
+}
+
+enum ActivityLogType {
+  action
+  audit
+  security
+  system
+}
+
+enum LogSeverity {
+  debug
+  info
+  warning
+  error
+  critical
+}
+
+enum RevenueSource {
+  ticket_sales
+  subscriptions
+  advertisements
+  partnerships
+  other
+}
+
+enum RevenueCategory {
+  passenger_fares
+  subscription_fees
+  loyalty_points_redemption
+  other
+}
+
+enum ExpenseCategory {
+  fuel
+  maintenance
+  salaries
+  insurance
+  rent
+  utilities
+  marketing
+  other
+}
+
+enum ExpenseStatus {
+  pending
+  approved
+  rejected
+  paid
+}
+
+enum NotificationTargetType {
+  single_user
+  role
+  all_users
+  custom_list
+}
