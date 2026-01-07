@@ -22,7 +22,7 @@ export const DriverMutationResolvers = {
 	},
 	DriverMutation: {
 		// Create a new driver
-		CuDriver: requireRole(["Admin", "SuperAdmin"])(
+		CuDriver: requireRole(["admin", "super_admin"])(
 			protectedTenantResolver(
 				async (
 					_: any,

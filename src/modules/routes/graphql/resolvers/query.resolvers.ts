@@ -36,7 +36,9 @@ export const RouteQueryResolvers = {
 			);
 
 			const routeService = new RoutesQueriesService(context.prisma);
-			return await routeService.getAllRoutes(paginationData);
+			console.log({ routes: paginationData });
+			const routes = await routeService.getAllRoutes(paginationData);
+			return routes;
 		}
 	),
 

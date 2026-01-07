@@ -4,13 +4,17 @@ import {
 	type PaginationArgs,
 } from "../helpers/pagination";
 
+type FilterItem = {
+	filterField: string;
+	filterValue: any;
+};
+
 export class PaginatedAndFilterService<T> {
 	private model: {
 		findMany: Function;
 		count: Function;
 	};
 
-	// Fields to be searched on, e.g. ['name', 'title']
 	private searchFields: string[];
 
 	constructor(
@@ -21,18 +25,41 @@ export class PaginatedAndFilterService<T> {
 		this.searchFields = searchFields;
 	}
 
-	async filterAndPaginate(args?: PaginationArgs): Promise<PaginatedResult<T>> {
-		let where = args?.where ?? {};
-		if (args?.search && this.searchFields.length > 0) {
-			const searchConditions = this.searchFields.map((field) => ({
-				[field]: { contains: args.search, mode: "insensitive" },
-			}));
+	async filterAndPaginate(
+		args?: PaginationArgs,
+		filters?: FilterItem[],
+		selectFields?: string[]
+	): Promise<PaginatedResult<T>> {
+		let where: any = args?.where ?? {};
+
+		/* ✅ apply filters */
+		if (filters?.length) {
+			const filtersWhere = filters.reduce((acc, filter) => {
+				acc[filter.filterField] = filter.filterValue;
+				return acc;
+			}, {} as Record<string, any>);
+
 			where = {
 				...where,
-        OR: searchConditions,
-        
+				...filtersWhere,
 			};
 		}
-		return paginate<T>(this.model, { ...args, where });
+
+		/* ✅ apply search */
+		if (args?.search && this.searchFields.length > 0) {
+			const searchConditions = this.searchFields.map((field) => ({
+				[field]: {
+					contains: args.search,
+					mode: "insensitive",
+				},
+			}));
+
+			where = {
+				...where,
+				OR: searchConditions,
+			};
+		}
+
+		return paginate<T>(this.model, { ...args, where, select: selectFields ? Object.fromEntries(selectFields.map(field => [field, true])) : undefined });
 	}
 }

@@ -2,16 +2,15 @@ import gql from "graphql-tag";
 
 // tenant.typeDefs.ts
 export const tenantTypeDefs = gql`
-
 	enum TenantStatus {
 		active
 		suspended
 		inactive
 	}
 	enum passenger_access_policy {
-open
-restricted
-}
+		open
+		restricted
+	}
 	enum UserRole {
 		admin
 		supervisor
@@ -30,7 +29,10 @@ restricted
 		status: TenantStatus!
 		createdAt: String!
 	}
-
+	input OrderBy {
+		field: String
+		direction: String
+	}
 	type PaginationMeta {
 		page: Int!
 		limit: Int!
@@ -41,6 +43,7 @@ restricted
 		page: Int
 		limit: Int
 		search: String
+		orderBy: OrderBy
 	}
 	type TenantPagination {
 		data: [Tenant!]!
@@ -57,7 +60,7 @@ restricted
 	input TenantInput {
 		id: ID
 		name: String!
-		accessPolicy:passenger_access_policy
+		accessPolicy: passenger_access_policy
 		user: TenantUserInput!
 	}
 

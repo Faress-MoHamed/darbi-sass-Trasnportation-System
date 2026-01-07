@@ -34,7 +34,10 @@ model Booking {
   bookingDate  DateTime?     @map("booking_date")
   paymentId    String?       @map("payment_id") @db.Uuid
   deletedAt    DateTime?     @map("deleted_at")
-
+  price            Decimal?  @db.Decimal(10, 2)
+  discountAmount   Decimal?  @map("discount_amount") @db.Decimal(10, 2)
+  finalPrice       Decimal?  @map("final_price") @db.Decimal(10, 2)
+  currency         String    @default("EGP") @db.VarChar(3)
   tenant    Tenant     @relation(fields: [tenantId], references: [id])
   trip      Trip?      @relation(fields: [tripId], references: [id])
   payment   Payment?   @relation(fields: [paymentId], references: [id])
@@ -42,6 +45,7 @@ model Booking {
 
   tickets           Ticket[]
   customFieldValues BookingCustomFieldValue[]
+  bookingDiscounts BookingDiscount[]
 
   @@index([tenantId])
   @@index([tripId])
@@ -108,4 +112,21 @@ model LoyaltyPoint {
   @@index([userId])
   @@index([createdAt])
   @@map("loyalty_points")
+}
+
+
+model BookingDiscount {
+  id             String    @id @default(uuid()) @db.Uuid
+  bookingId      String    @map("booking_id") @db.Uuid
+  discountId     String    @map("discount_id") @db.Uuid
+  discountAmount Decimal   @map("discount_amount") @db.Decimal(10, 2)
+  appliedAt      DateTime  @default(now()) @map("applied_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  booking  Booking  @relation(fields: [bookingId], references: [id])
+  discount Discount @relation(fields: [discountId], references: [id])
+
+  @@unique([bookingId, discountId])
+  @@index([discountId])
+  @@map("booking_discounts")
 }

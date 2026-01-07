@@ -33,6 +33,8 @@ model Tenant {
   analyticsKpis         AnalyticsKpi[]
   mapLayers             MapLayer[]
   settings              Setting[]
+  pricingRules          PricingRule[]
+  discounts             Discount[]
   attachments           Attachment[]
   userCustomFields      UserCustomField[]
   driverCustomFields    DriverCustomField[]

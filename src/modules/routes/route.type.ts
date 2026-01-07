@@ -1,5 +1,9 @@
 // ===============================
 // CreateRoute
+
+import type { Station } from "@prisma/client";
+import type { CreateStationType } from "../stations/dto/CreateStation.dto";
+
 // ===============================
 export type CreateRoute = {
   tenantId: string; // UUID
@@ -7,7 +11,7 @@ export type CreateRoute = {
 	distanceKm?: number | undefined;
 	estimatedTime?: string | undefined;
 	active: boolean; // default: true
-	stations?: string[] | undefined; // UUID[]
+	stations?: CreateStationType[] | undefined; // UUID[]
 };
 
 // ===============================

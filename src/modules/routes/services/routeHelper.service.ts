@@ -1,6 +1,7 @@
-import type { PrismaClient, Station } from "@prisma/client";
+import { Prisma, type PrismaClient, type Station } from "@prisma/client";
 import { AppError } from "../../../errors/AppError";
 import type { DistanceService } from "../../../services/distance.service";
+import type { CreateStationType } from "../../stations/dto/CreateStation.dto";
 
 export class RouteHelperService {
 	constructor(
@@ -55,7 +56,7 @@ export class RouteHelperService {
 	 * Calculate route distance from stations or use provided value
 	 */
 	calculateRouteDistance(
-		stations: Station[],
+		stations: CreateStationType[],
 		providedDistance?: number
 	): number {
 		if (stations.length >= 2) {
@@ -88,8 +89,15 @@ export class RouteHelperService {
 	 */
 	async recalculateRouteDistance(routeId: string) {
 		const stations = await this.getRouteStations(routeId);
-		const totalDistance =
-			this.distanceService.calculateTotalRouteDistance(stations);
+		const totalDistance = this.distanceService.calculateTotalRouteDistance(
+			stations?.map((s) => ({
+				...s,
+				latitude: new Prisma.Decimal(s.latitude ?? 0.0),
+				longitude: new Prisma.Decimal(s.longitude ?? 0.0),
+				routeId: s.routeId ?? undefined,
+				sequence: s.sequence ?? undefined,
+			}))
+		);
 
 		if (totalDistance > 0) {
 			await this.updateRouteDistance(routeId, totalDistance);

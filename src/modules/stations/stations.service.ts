@@ -26,9 +26,9 @@ export interface PaginationOptions {
 // ============================================================================
 
 export class StationService {
-	prisma: PrismaClient;
+	prisma: PrismaClient | Prisma.TransactionClient;
 
-	constructor(prisma?: PrismaClient) {
+	constructor(prisma?: PrismaClient | Prisma.TransactionClient) {
 		if (!prisma) {
 			throw new AppError("Prisma client not available");
 		}
@@ -258,27 +258,27 @@ export class StationService {
 	/**
 	 * Bulk create stations
 	 */
-	async CreateMultipleStations(stations: CreateStationType[]): Promise<number> {
+	async CreateMultipleStations(
+		stations: CreateStationType[],
+		prismaTx?: PrismaClient | Prisma.TransactionClient
+	) {
 		try {
-			const Savedstations = await this.prisma.station.findMany();
-			const data = await stations.map(async (s) => {
-				// Validate each station before creation
-				await this.validateOnCreateStation(s);
-				return {
-					tenantId: s.tenantId,
-					name: s.name,
-					latitude: s.latitude ? new Prisma.Decimal(s.latitude) : null,
-					longitude: s.longitude ? new Prisma.Decimal(s.longitude) : null,
-					routeId: s.routeId,
-					sequence: s.sequence,
-				};
-			});
-			const result = await this.prisma.station.createMany({
-				data: await Promise.all(data),
-				skipDuplicates: true,
-			});
+			const dbClient = prismaTx || this.prisma;
+			const createdStations = await Promise.all(
+				stations.map((s) =>
+					dbClient.station.create({
+						data: {
+							tenantId: s.tenantId,
+							name: s.name,
+							latitude: s.latitude ? new Prisma.Decimal(s.latitude) : null,
+							longitude: s.longitude ? new Prisma.Decimal(s.longitude) : null,
+							sequence: s.sequence,
+						},
+					})
+				)
+			);
 
-			return result.count;
+			return createdStations;
 		} catch (error: any) {
 			throw new AppError(
 				`${error.message || "Failed to bulk create stations"}`
@@ -304,16 +304,17 @@ export class StationService {
 					`Route with ID ${routeId} not found or doesn't belong to tenant`
 				);
 			}
-
-			// Update each station's sequence
-			await this.prisma.$transaction(
-				stationOrder.map(({ stationId, sequence }) =>
-					this.prisma.station.update({
-						where: { id: stationId },
-						data: { sequence },
-					})
-				)
-			);
+			if (this.prisma instanceof PrismaClient) {
+				// Update each station's sequence
+				await this.prisma.$transaction(
+					stationOrder.map(({ stationId, sequence }) =>
+						this.prisma.station.update({
+							where: { id: stationId },
+							data: { sequence },
+						})
+					)
+				);
+			}
 		} catch (error: any) {
 			throw new AppError(`Failed to reorder stations: ${error.message}`);
 		}
@@ -389,8 +390,8 @@ export class StationService {
 		if (
 			stations.find(
 				(el) =>
-					Number(el?.latitude) === data.latitude &&
-					Number(el?.longitude) === data.longitude &&
+					new Prisma.Decimal(el?.latitude ?? 0.0) === data.latitude &&
+					new Prisma.Decimal(el?.longitude ?? 0.0) === data.longitude &&
 					el.tenantId === data.tenantId
 			)
 		) {
@@ -410,5 +411,4 @@ export class StationService {
 			where: { id: { in: stationIds } },
 		});
 	}
-	
 }

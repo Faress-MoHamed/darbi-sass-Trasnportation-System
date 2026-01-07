@@ -61,6 +61,8 @@ model Route {
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
+  routePricing    RoutePricing[]
+  stationPricing  StationPricing[]
   stations          Station[]
   trips             Trip[]
   customFieldValues RouteCustomFieldValue[]
@@ -85,7 +87,8 @@ model Station {
   route  Route? @relation(fields: [routeId], references: [id])
 
   tripStations TripStation[]
-
+  fromStationPricing StationPricing[] @relation("FromStation")
+  toStationPricing   StationPricing[] @relation("ToStation")
   @@index([tenantId])
   @@index([routeId])
   @@map("stations")
@@ -109,6 +112,7 @@ model Trip {
   bus    Bus?    @relation(fields: [busId], references: [id])
   driver Driver? @relation(fields: [driverId], references: [id])
 
+  tripPricing       TripPricing[]
   tripStations      TripStation[]
   tripLogs          TripLog[]
   bookings          Booking[]

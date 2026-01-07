@@ -111,23 +111,26 @@ export class DriverService {
 			// Create user + driver in a single transaction
 			const result = await this.prisma.$transaction(async (tx) => {
 				// Create user
-				const user = await this.userService.createUser(
-					{
-						phone: validatedData.phone,
-						email: validatedData.email || null,
-						name: validatedData.name,
-						password: null,
-						status: "active",
-						phoneVerified: false,
-						role: null,
-					},
-					tx.user,
-				);
-
+				let DriverUser;
+				DriverUser = await this.userService.findByPhone(validatedData.phone);
+				if (!DriverUser) {
+					DriverUser = await this.userService.createUser(
+						{
+							phone: validatedData.phone,
+							email: validatedData.email || null,
+							name: validatedData.name,
+							password: null,
+							status: "active",
+							phoneVerified: false,
+							role: null,
+						},
+						tx.user
+					);
+				}
 				// Create Driver
 				const driver = await tx.driver.create({
 					data: {
-						userId: user.id,
+						userId: DriverUser.id,
 						tenantId,
 						licenseNumber: validatedData.licenseNumber,
 						status: validatedData.status || DriverStatus.offline,

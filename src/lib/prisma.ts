@@ -62,9 +62,18 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 					};
 					return query(args);
 				},
+				async count({ model, args, query }) {
+					if (!tenantId) throw new AppError("tenantId is required", 400);
+
+					args.where = {
+						...(args.where as any),
+						...(tenantId ? { tenantId } : {}),
+						deletedAt: null, // Soft delete filter
+					};
+					return query(args);
+				},
 
 				async findFirst({ model, args, query }) {
-
 					args.where = {
 						...(args.where as any),
 						...(tenantId ? { tenantId } : {}),
@@ -124,6 +133,43 @@ export const PrismaForDev = (tenantId?: string, userId?: string) => {
 						where: args.where,
 						data: { deletedAt: new Date() },
 					});
+				},
+				async deleteMany({ model, args, query, operation }) {
+					console.log({ tenantId });
+					if (!tenantId) throw new AppError("tenantId is required", 400);
+
+					if (!modelsWithoutDirectTenantId.includes(model)) {
+						args.where = {
+							...(args.where as any),
+							...(tenantId ? { tenantId } : {}),
+						};
+					}
+					await addToActivityLog(
+						userId || null,
+						"action",
+						`deleted a record in ${model} model`
+					);
+
+					return (prisma[model as keyof typeof prisma] as any).updateMany({
+						where: args.where,
+						data: { deletedAt: new Date() },
+					});
+				},
+
+				async createMany({ model, args, query }) {
+					if (!tenantId) throw new AppError("tenantId is required", 400);
+					if (!modelsWithoutDirectTenantId.includes(model)) {
+						args.data = {
+							...(args.data as any),
+							...(tenantId ? { tenantId } : {}),
+						};
+					}
+					await addToActivityLog(
+						userId || null,
+						"action",
+						`Created a new record in ${model} model`
+					);
+					return query(args);
 				},
 			},
 		},

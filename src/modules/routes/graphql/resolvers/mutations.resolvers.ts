@@ -2,12 +2,14 @@
 // Mutation Resolvers
 // ============================================================================
 
+import { Decimal } from "@prisma/client/runtime/client";
 import { safeResolver } from "../../../../helpers/safeResolver";
 import { validateInput } from "../../../../helpers/validateInput";
 import type { ResolverContext } from "../../../../types/ResolverTypes";
 import {
 	AddStationToRouteDto,
 	CreateRouteDto,
+	DeleteRoutesDto,
 	ReorderStationsDto,
 	RouteIdParamDto,
 	UpdateRouteDto,
@@ -31,12 +33,26 @@ export const mutationResolvers = {
 	 */
 	createRoute: safeResolver(
 		async (_parent: any, args: CreateRouteArgs, context: ResolverContext) => {
-			const validatedInput = validateInput(CreateRouteDto, args.input);
-
+			const validatedInput = validateInput(CreateRouteDto, {
+				...args.input,
+				stations:
+					args.input.stations?.map((station) => ({
+						...station,
+						latitude: new Decimal(station.latitude || 0),
+						longitude: new Decimal(station.longitude || 0),
+						tenantId: context.tenant!.tenantId,
+					})) || [],
+			});
 			const routeService = createRouteService(context);
 			return await routeService.createRoute({
 				...validatedInput,
-				tenantId: args.input.tenantId,
+				stations: validatedInput.stations?.map((station) => ({
+					...station,
+					latitude: new Decimal(station.latitude),
+					longitude: new Decimal(station.longitude),
+					tenantId: context.tenant!.tenantId,
+				})),
+				tenantId: context.tenant!.tenantId,
 			});
 		}
 	),
@@ -58,14 +74,16 @@ export const mutationResolvers = {
 	 * Permanently delete a route
 	 */
 	deleteRoute: safeResolver(
-		async (_parent: any, args: RouteIdArgs, context: ResolverContext) => {
-			validateInput(RouteIdParamDto, { routeId: args.routeId });
-
-			const QueryrouteService = new RoutesQueriesService(context.prisma);
+		async (
+			_parent: any,
+			args: {
+				routeId: string[];
+			},
+			context: ResolverContext
+		) => {
+			console.log({args})
+			validateInput(DeleteRoutesDto, args);
 			const routeService = createRouteService(context);
-			// Validate route has no active trips before deletion
-			await validateNoActiveTrips(QueryrouteService, args.routeId);
-
 			return await routeService.deleteRoute(args.routeId);
 		}
 	),

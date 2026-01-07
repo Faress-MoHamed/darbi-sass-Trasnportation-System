@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient, type Station } from "@prisma/client";
 import type {
 	CreateRoute,
 	UpdateRoute,
@@ -39,33 +39,50 @@ export class RouteMutationsService {
 			data.name,
 			data.tenantId
 		);
-		// Fetch and validate stations
-		const stations = await new StationService(this.prisma).getStationsByIds(
-			data.stations || []
-		);
 
-		// Calculate distance if we have enough stations
-		const distanceKm = this.RouteHelper.calculateRouteDistance(
-			stations,
-			data.distanceKm
-		);
+		const route = await this.prisma.$transaction(async (tx) => {
+			// 1️⃣ Create Route first (بدون stations)
+			const route = await tx.route.create({
+				data: {
+					tenantId: data.tenantId,
+					name: data.name,
+					distanceKm: data.distanceKm,
+					estimatedTime: data.estimatedTime, // الوقت بالثواني
+					active: data.active ?? true,
+					stations: {
+						createMany: {
+							data: data.stations || [],
+						},
+					},
+				},
+				select: {
+					stations: true,
+					id: true,
+				},
+			});
 
-		const route = await this.prisma.route.create({
-			data: {
-				tenantId: data.tenantId,
-				name: data.name,
-				distanceKm,
-				estimatedTime: data.estimatedTime,
-				active: data.active ?? true,
-				stations: {
-					connect: data.stations?.map((id) => ({ id })) || [],
+			// 3️⃣ Calculate distance
+			const distanceKm = this.RouteHelper.calculateRouteDistance(
+				data.stations || [],
+				data.distanceKm
+			);
+
+			// 5️⃣ Update distance if recalculated
+			await tx.route.update({
+				where: { id: route.id },
+				data: { distanceKm },
+			});
+
+			// 6️⃣ Return route with stations
+			return tx.route.findUnique({
+				where: { id: route.id },
+				include: {
+					stations: {
+						where: { deletedAt: null },
+						orderBy: { sequence: "asc" },
+					},
 				},
-			},
-			include: {
-				stations: {
-					orderBy: { sequence: "asc" as const },
-				},
-			},
+			});
 		});
 
 		return route;
@@ -113,11 +130,29 @@ export class RouteMutationsService {
 	/**
 	 * Permanently delete a route
 	 */
-	async deleteRoute(routeId: string) {
-		await this.RouteHelper.ensureRouteExists(routeId);
-
-		return await this.prisma.route.delete({
-			where: { id: routeId },
+	async deleteRoute(routeId: string[]) {
+		const routes = await this.prisma.route.findMany({
+			where: {
+				id: {
+					in: routeId,
+				},
+				AND: {
+					active: false,
+				},
+			},
+		});
+		if (routes.length !== routeId.length) {
+			throw new AppError(
+				"All routes must be deactivated before deletion.",
+				400
+			);
+		}
+		return await this.prisma.route.deleteMany({
+			where: {
+				id: {
+					in: routeId,
+				},
+			},
 		});
 	}
 
@@ -194,8 +229,15 @@ export class RouteMutationsService {
 		);
 
 		// Update route distance
-		const totalDistance =
-			distanceService.calculateTotalRouteDistance(orderedStations);
+		const totalDistance = distanceService.calculateTotalRouteDistance(
+			orderedStations?.map((s) => ({
+				...s,
+				latitude: new Prisma.Decimal(s.latitude ?? 0.0),
+				longitude: new Prisma.Decimal(s.longitude ?? 0.0),
+				routeId: s.routeId ?? undefined,
+				sequence: s.sequence ?? undefined,
+			}))
+		);
 
 		await this.RouteHelper.updateRouteDistance(routeId, totalDistance);
 

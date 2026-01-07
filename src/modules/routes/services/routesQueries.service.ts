@@ -1,4 +1,4 @@
-import type { PrismaClient, TripStatus } from "@prisma/client";
+import type { PrismaClient, Route, Station, TripStatus } from "@prisma/client";
 import { AppError } from "../../../errors/AppError";
 import type { PaginationArgs } from "../../../helpers/pagination";
 import { PaginatedAndFilterService } from "../../../services/Filters.service";
@@ -12,9 +12,9 @@ export class RoutesQueriesService {
 		this.prisma = prisma;
 	}
 	async getAllRoutes(args: PaginationArgs) {
-		return await new PaginatedAndFilterService(this.prisma.route, [
+		return await new PaginatedAndFilterService<Station>(this.prisma.route, [
 			"name",
-		]).filterAndPaginate(args);
+		]).filterAndPaginate(args, [], ["stations", "trips"]);
 	}
 	async getRouteById(routeId: string) {
 		const route = await this.prisma.route.findUnique({

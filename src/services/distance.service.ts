@@ -1,6 +1,7 @@
 import * as turf from "@turf/turf";
 import { type Station } from "@prisma/client";
 import { Prisma } from "@prisma/client";
+import type { CreateStationType } from "../modules/stations/dto/CreateStation.dto";
 
 export class DistanceService {
 	/**
@@ -22,7 +23,7 @@ export class DistanceService {
 	 * @param stations Array of stations ordered by sequence
 	 * @returns Total distance in kilometers
 	 */
-	calculateTotalRouteDistance(stations: Station[]): number {
+	calculateTotalRouteDistance(stations: CreateStationType[]): number {
 		if (stations.length < 2) return 0;
 
 		const stationsWithCoords = stations.filter(
@@ -144,7 +145,7 @@ export class DistanceService {
 	 * MAIN HELPER YOU WANT
 	 * Returns { distanceKm, estimatedMinutes }
 	 */
-	getDistanceAndEstimatedTime(stations: Station[]) {
+	getDistanceAndEstimatedTime(stations: CreateStationType[]) {
 		const distanceKm = this.calculateTotalRouteDistance(stations);
 
 		// ⚡ configurable average bus speed (km/h)

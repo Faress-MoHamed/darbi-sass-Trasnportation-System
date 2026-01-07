@@ -1,9 +1,15 @@
 export interface PaginationArgs {
 	page?: number;
 	limit?: number;
-	search?: string;
+	search?: any;
 	where?: any;
-	orderBy?: any;
+	orderBy?: {
+		field: string;
+		direction: "asc" | "desc";
+	};
+	select?: {
+		[k: string]: boolean;
+	};
 }
 
 export interface PaginationMeta {
@@ -36,6 +42,8 @@ export async function paginate<T>(
 				where,
 				skip,
 				take: limit,
+				include: args?.select,
+				orderBy: args?.orderBy ? { [args.orderBy.field]: args?.orderBy.direction || "asc" } : undefined,
 			}),
 			model.count({ where }),
 		]);

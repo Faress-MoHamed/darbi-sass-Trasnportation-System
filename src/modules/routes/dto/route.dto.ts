@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { CreateMultipleStationsDtoSchema } from "../../stations/dto/CreateMultipleStations.dto";
+import { CreateStationDtoSchema } from "../../stations/dto/CreateStation.dto";
 
 // Create Route DTO
 export const CreateRouteDto = z.object({
@@ -7,7 +9,7 @@ export const CreateRouteDto = z.object({
 	distanceKm: z.number().positive("Distance must be positive").optional(),
 	estimatedTime: z.string().optional(),
 	active: z.boolean().default(true),
-	stations: z.array(z.string().uuid()).optional(),
+	stations: z.array(CreateStationDtoSchema),
 });
 
 export type CreateRouteDto = z.infer<typeof CreateRouteDto>;
@@ -68,3 +70,9 @@ export const RouteIdParamDto = z.object({
 
 export type RouteIdParamDto = z.infer<typeof RouteIdParamDto>;
 
+export const DeleteRoutesDto = z.object({
+	routeId: z
+		.array(z.string().uuid("Invalid route ID"))
+		.min(1, "At least one route ID is required"),
+});
+export type DeleteRoutesDto = z.infer<typeof DeleteRoutesDto>;

@@ -21,6 +21,7 @@ export type ResolverContext = {
 		deletedAt: Date | null;
 		name: string;
 		description: string | null;
+		type: string;
 	};
 };
 export type ResolverFn<

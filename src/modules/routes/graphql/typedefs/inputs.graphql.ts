@@ -5,7 +5,7 @@ export default gql`
 		distanceKm: Float
 		estimatedTime: String
 		active: Boolean
-		stations: [ID!]
+		stations: [CreateStationInput!]
 	}
 
 	input UpdateRouteInput {
